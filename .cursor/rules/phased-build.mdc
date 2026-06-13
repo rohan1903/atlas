@@ -1,0 +1,38 @@
+---
+description: Build Atlas in small phases; one ROADMAP phase per session unless user asks otherwise
+alwaysApply: true
+---
+
+# Phased build workflow
+
+Atlas is built incrementally per [ROADMAP.md](ROADMAP.md). The project owner is not a Rust expert and tracks progress manually.
+
+## Before coding
+
+1. Read [ROADMAP.md](ROADMAP.md) and identify the **active phase**.
+2. Only implement tasks for that phase (or an explicit sub-step the user names).
+3. Do not jump ahead to later phases (parsing, graph, LLM, etc.) without user approval.
+
+## During a phase
+
+- Prefer **small, verifiable iterations** (one concern per change).
+- After each iteration, state how to verify (command + expected output).
+- Update ROADMAP checkboxes and the **Current status** section when a phase or task is done.
+- If scope grows, split into a sub-milestone instead of one large PR-sized change.
+
+## After a phase
+
+- Run the phase **How to verify** steps before marking complete.
+- Tell the user what to run in the terminal and what good output looks like.
+- Stop and wait for the user to say **"Start Phase N"** before beginning the next phase.
+
+## Debugging support
+
+- Add or use `--verbose` when it helps the owner follow what Atlas is doing.
+- Never hide scan/parse failures; report counts (parsed, skipped, errors).
+- When fixing bugs, stay within the current phase scope unless the fix requires an earlier layer.
+
+## Documentation
+
+- Keep [README.md](README.md) in sync when commands or install steps change.
+- Record known limitations honestly (approximate graphs, framework-specific gaps).

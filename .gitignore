@@ -1,0 +1,21 @@
+# Rust build output
+/target/
+
+# Atlas cache (created inside scanned repositories)
+.atlas/
+
+# Environment and secrets
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+*.swp
+*.swo
+
+# Cloned benchmark repos (run tests/benchmarks/README.md to fetch)
+/tests/benchmarks/starlette/
