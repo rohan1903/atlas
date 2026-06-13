@@ -30,8 +30,8 @@ Atlas helps you understand what a system does, how it is organized, which files 
 flowchart LR
     scan["atlas scan"] --> inventory[FileInventory]
     inventory --> parse[TreeSitterParsing]
-    parse --> graph[RepositoryGraph]
-    graph --> intel[RankingAndSubsystems]
+    parse --> repoGraph[RepositoryGraph]
+    repoGraph --> intel[RankingAndSubsystems]
     intel --> cli[TerminalCommands]
     intel --> llm["LLM explanations (Phase 7)"]
 ```
