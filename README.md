@@ -19,8 +19,7 @@ Scan a repo. Get architecture, ranked files, and feature flows in your terminal.
 [Installation](#installation) ·
 [Quick start](#quick-start) ·
 [Commands](#commands) ·
-[Example output](#example-output) ·
-[Roadmap](ROADMAP.md)
+[Example output](#example-output)
 
 </div>
 
@@ -250,7 +249,7 @@ Shipped what works. Known gaps:
 - **No confidence scores** on guessed vs traced edges yet (v1.1).
 - **`explain` without `--no-llm`** waits on v1.1 Ollama/API wiring.
 
-Full backlog: [ROADMAP.md](ROADMAP.md).
+**v1.1 ideas:** behavior tracing, confidence labels, `atlas impact`, Rust grammar, optional LLM narration.
 
 ---
 
@@ -276,7 +275,7 @@ cargo install --path .   # puts `atlas` on PATH
 cargo build --release    # or just build under target/release/
 ```
 
-Build log and verify steps: [ROADMAP.md](ROADMAP.md).
+Contributors: run `cargo test` and try the fixtures before opening a PR.
 
 **Shipped:** [v1.0.0](https://github.com/rohan1903/atlas/releases/tag/v1.0.0) with `scan`, `architecture`, `top-files`, `flow`, `learn`, `explain --no-llm`.
 
@@ -287,7 +286,7 @@ Build log and verify steps: [ROADMAP.md](ROADMAP.md).
 1. `atlas scan --force` after the repo changed.
 2. Paste full terminal output + which command broke.
 3. Reproduce on a fixture if you can.
-4. [ROADMAP.md](ROADMAP.md) has a debugging section.
+4. Open a GitHub issue with repro steps.
 
 Issues welcome on GitHub.
 

@@ -17,5 +17,8 @@ Thumbs.db
 *.swp
 *.swo
 
+# Local planning notes (not published)
+ROADMAP.md
+
 # Cloned benchmark repos (run tests/benchmarks/README.md to fetch)
 /tests/benchmarks/starlette/
