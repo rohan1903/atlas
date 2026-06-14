@@ -2,9 +2,13 @@
 
 # Atlas
 
-**A map for codebases you didn't write. Built from structure, not LLM guesses.**
+**Get oriented in minutes, not half a day.**
 
-Scan a repo. Get architecture, ranked files, and feature flows in your terminal. Local cache, no account, no cloud.
+A map for repos you didn't write. Most onboarding starts by opening random folders and hoping the architecture eventually reveals itself. Atlas builds a graph first, then shows you where to read.
+
+Built for real projects with dozens to thousands of files: too large to skim in one pass, too small to justify weeks of onboarding. Local cache. No account. No cloud.
+
+> **The graph is the product.** Everything else (ranking, flows, explain) reads from that graph. Optional LLM narration in v1.1 must cite it, not invent paths.
 
 <br/>
 
@@ -16,150 +20,28 @@ Scan a repo. Get architecture, ranked files, and feature flows in your terminal.
 
 <br/>
 
-[Installation](#installation) ·
-[Quick start](#quick-start) ·
-[Commands](#commands) ·
-[Example output](#example-output)
+[Try it](#try-it) ·
+[Why Atlas](#why-atlas) ·
+[Why not an LLM?](#why-not-just-ask-an-llm) ·
+[Install](#installation) ·
+[Commands](#commands)
 
 </div>
 
 ---
 
-## Why Atlas
+## Try it
 
-New repo, same questions every time:
-
-- Where are the actual subsystems?
-- What files matter?
-- If I need to touch *auth* or *check-in*, where does execution start?
-
-Atlas answers from **structure**: scan, parse, graph, rank, trace. No LLM in the loop for v1. `explain --no-llm` pulls real citations and snippets from the graph. LLM narration comes in v1.1, optional, on top of the same evidence.
-
-| Atlas **is** | Atlas **is not** |
-|--------------|------------------|
-| A fast onboarding map | Another AI coding agent |
-| Local (`.atlas/` on disk) | A hosted analysis SaaS |
-| Graph + heuristics you can inspect | Magic that invents file paths |
-| Honest when the graph is approximate | A replacement for reading code |
-
----
-
-## Installation
-
-You need [Rust](https://rustup.rs/) 1.70+ (`rustc`, `cargo`). One install command puts `atlas` on your PATH.
+Three commands. Output below is from the bundled [demo_app](tests/fixtures/demo_app) fixture (8 subsystems, cross-folder imports):
 
 ```powershell
-git clone https://github.com/rohan1903/atlas.git
-cd atlas
-cargo install --path .
-atlas --help
-```
-
-That installs to:
-
-| OS | Binary |
-|----|--------|
-| Windows | `%USERPROFILE%\.cargo\bin\atlas.exe` |
-| Linux / macOS | `~/.cargo/bin/atlas` |
-
-Then it's just `atlas scan`, `atlas flow login`, etc. No `.\target\release\...` nonsense.
-
-<details>
-<summary><strong>First time with Rust on Windows?</strong></summary>
-
-1. Grab [rustup.rs](https://rustup.rs/) (defaults are fine).
-2. Restart your terminal.
-3. `rustc --version`, `cargo --version`, `atlas --help`.
-
-First `cargo install` pulls deps and can take a few minutes. Coffee helps.
-
-</details>
-
-<details>
-<summary><strong>Don't want to install globally?</strong></summary>
-
-From the repo:
-
-```powershell
-cargo build --release
-cargo run --release -- scan tests/fixtures/demo_app --force
-```
-
-Or patch PATH for one session:
-
-```powershell
-$env:Path += ";$PWD\target\release"
-atlas scan tests/fixtures/demo_app --force
-```
-
-</details>
-
----
-
-## Quick start
-
-Point it at any repo. Cache lands in `.atlas/` inside that repo.
-
-```powershell
+cargo install --path .          # once, from a clone of this repo
 atlas scan tests/fixtures/demo_app --force
 atlas architecture tests/fixtures/demo_app
-atlas top-files tests/fixtures/demo_app
 atlas flow login tests/fixtures/demo_app
-atlas learn auth tests/fixtures/demo_app
-atlas explain auth tests/fixtures/demo_app --no-llm
 ```
 
-Same on Linux/macOS after `cargo install --path .`.
-
-Try the fixtures: [demo_app](tests/fixtures/demo_app) (clean), [ugly_app](tests/fixtures/ugly_app) (messy on purpose). Bigger smoke test: [Starlette](tests/benchmarks/README.md).
-
----
-
-## Commands
-
-| Command | What it does |
-|---------|----------------|
-| `atlas scan [path]` | Walk repo, parse, write graph to `.atlas/` |
-| `atlas scan --force` | Nuke cache and rebuild |
-| `atlas architecture [path]` | Subsystems, entrypoints, critical files |
-| `atlas top-files [path]` | Ranked **code files** (skips tests/docs by default) |
-| `atlas top-files --include-tests` | Include test files |
-| `atlas top-files --include-metadata` | Include README, configs, requirements, etc. |
-| `atlas flow <name> [path]` | Compressed execution path |
-| `atlas flow <name> --verbose` | Full call graph dump |
-| `atlas learn <topic> [path]` | Suggested reading order for a topic |
-| `atlas explain <topic> [path] --no-llm` | Overview + walkthrough + citations + snippets |
-
-`--color` forces highlighting. `NO_COLOR=1` turns it off.
-
----
-
-## What the rank score means
-
-When you run `top-files` or see `score` in `architecture`, that's a **heuristic importance number**, not lines of code or git blame stats. Higher = more central in the static graph.
-
-Per file, Atlas starts from graph signals:
-
-| Signal | Weight | Meaning |
-|--------|--------|---------|
-| Inbound refs | ×3 | Other files import or call into this one |
-| Outbound refs | ×0.5 | This file imports or calls outward |
-| Definitions | ×0.3 | Functions/classes defined here |
-| Entrypoint | +40 | Likely app entry (`main.py`, `index.ts`, etc.) |
-
-Then it applies path penalties: tests (×0.05), docs/config (×0.1), generated or vendor-ish paths (×0.25). By default, `top-files` also hides tests and metadata entirely unless you pass `--include-tests` or `--include-metadata`.
-
-**Subsystem scores** in `architecture` are the sum of file scores in that folder cluster. Use them to compare which part of the repo looks busiest, not as an objective quality metric.
-
-The number is relative to your repo. A score of 80 on one project doesn't mean the same thing on another. Treat the ordering as the useful part.
-
----
-
-## Example output
-
-`architecture` and `top-files` print plain lists. **`flow`**, **`learn`**, and **`explain`** use stacked box diagrams with `▼` connectors between steps.
-
-**Architecture** (lists, no boxes):
+**Architecture** (where the pieces live):
 
 ```text
 Repository: demo_app
@@ -169,6 +51,11 @@ Subsystems
      top: auth/service.py, auth/routes.py, auth/token.py
   2. Orders (4 files, score 35, internal links 2)
      top: orders/service.py, orders/routes.py, orders/repository.py
+  3. Users (4 files, score 34, internal links 2)
+     top: users/repository.py, users/service.py, users/models.py
+  4. Payments (3 files, score 15, internal links 1)
+     top: payments/service.py, payments/gateway.py, payments/__init__.py
+  ...
 
 Entrypoints
   - main.py
@@ -179,7 +66,7 @@ Critical files
   3.    17  orders/service.py
 ```
 
-**Flow** (vertical boxes, one function per step):
+**Flow** (where execution goes; folders alone won't show this):
 
 ```text
 Flow: login
@@ -205,83 +92,177 @@ Flow: login
                                        ...
 ```
 
-**Learn** (same box style for read order):
+Browsing folders tells you *where files are*. **`atlas flow`** tells you *what runs when you touch login, check-in, or auth*. Then `learn` and `explain` suggest reading order ([more examples](#example-output)).
 
-```text
-Goal: Understand auth
-  subsystem Auth
+Also try [ugly_app](tests/fixtures/ugly_app) (messy on purpose) or your own repo after `atlas scan ./your-repo --force`.
 
-Read order
-                         ╭────────────────────────────╮
-                         │     1. auth/routes.py      │
-                         │  HTTP routes and handlers  │
-                         ╰──────────────┬─────────────╯
-                                        │
-                                        ▼
-                         ╭────────────────────────────╮
-                         │     2. auth/service.py     │
-                         │    business logic layer    │
-                         ╰──────────────┬─────────────╯
-                                        │
-                                       ...
+---
 
-Estimated time: 25 minutes (rough: 5 min per file)
+## Why Atlas
+
+New repo, same questions every time:
+
+- Where are the actual subsystems?
+- What files matter?
+- If I need to touch *auth* or *check-in*, where does execution start?
+
+Atlas answers from **structure**: scan, parse, graph, rank, trace. No LLM in the loop for v1. `explain --no-llm` pulls real citations and snippets from the graph.
+
+| Atlas **is** | Atlas **is not** |
+|--------------|------------------|
+| A fast onboarding map | Another AI coding agent |
+| Local (`.atlas/` on disk) | A hosted analysis SaaS |
+| Graph + heuristics you can inspect | Magic that invents file paths |
+| Honest when the graph is approximate | A replacement for reading code |
+
+---
+
+## Why not just ask an LLM?
+
+LLMs explain code. Atlas finds the structure.
+
+LLMs can summarize what they've read. Atlas tells you **what to read first** and **how pieces connect**.
+
+**Without Atlas:** LLM → entire repo (guesses, missing files, invented paths)
+
+**With Atlas:** LLM → Atlas graph → repo (subsystems, entrypoints, call paths, ranked files)
+
+Atlas builds the graph deterministically:
+
+- subsystem boundaries
+- entrypoints
+- static call paths
+- importance-ranked files
+
+v1 ships graph-grounded templates (`explain --no-llm`). v1.1 adds optional LLM narration **on top of** that evidence. The graph stays the source of truth.
+
+---
+
+## Installation
+
+You need [Rust](https://rustup.rs/) 1.70+ (`rustc`, `cargo`).
+
+```powershell
+git clone https://github.com/rohan1903/atlas.git
+cd atlas
+cargo install --path .
+atlas --help
 ```
 
-**Explain** (reading order in boxes; citations and snippets below):
+| OS | Binary |
+|----|--------|
+| Windows | `%USERPROFILE%\.cargo\bin\atlas.exe` |
+| Linux / macOS | `~/.cargo/bin/atlas` |
 
-```text
-Repository: demo_app
-Topic: auth
+Then `atlas scan`, `atlas flow login`, etc. from any directory.
 
-Overview
-  Matched "auth" → Auth (auth)
-  5 files · 3 direct import link(s) within this folder
+<details>
+<summary><strong>First time with Rust on Windows?</strong></summary>
 
-  Reading order
-          ╭──────────────────────────────────────────────────────────╮
-          │                    1. auth/routes.py                     │
-          │  HTTP routes and handlers · score 13 · 1 inbound ref(s)  │
-          ╰─────────────────────────────┬────────────────────────────╯
-                                        │
-                                        ▼
-          ╭──────────────────────────────────────────────────────────╮
-          │                    2. auth/service.py                    │
-          │             business logic layer · score 20              │
-          ╰─────────────────────────────┬────────────────────────────╯
-                                        │
-                                       ...
+1. Grab [rustup.rs](https://rustup.rs/) (defaults are fine).
+2. Restart your terminal.
+3. `rustc --version`, `cargo --version`, `atlas --help`.
 
-Citations
-  1. auth/routes.py @ login_handler:21 (13 score, 1 inbound, ...)
-  2. auth/service.py @ login:16 (...)
+First `cargo install` pulls deps and can take a few minutes.
 
-Snippets
-  auth/routes.py (login_handler, lines 21-28)
-  (syntax-highlighted source block follows)
+</details>
+
+<details>
+<summary><strong>Don't want to install globally?</strong></summary>
+
+```powershell
+cargo build --release
+cargo run --release -- scan tests/fixtures/demo_app --force
 ```
 
-Colors and exact spacing depend on your terminal width. Use `--color` to force highlighting on snippets.
+</details>
+
+---
+
+## Commands
+
+| Command | What it does |
+|---------|----------------|
+| `atlas scan [path]` | Walk repo, parse, write graph to `.atlas/` |
+| `atlas scan --force` | Rebuild cache from scratch |
+| `atlas architecture [path]` | Subsystems, entrypoints, critical files |
+| `atlas top-files [path]` | Ranked **code files** (skips tests/docs by default) |
+| `atlas top-files --include-tests` | Include test files |
+| `atlas top-files --include-metadata` | Include README, configs, requirements, etc. |
+| `atlas flow <name> [path]` | Compressed execution path (box diagram) |
+| `atlas flow <name> --verbose` | Full call graph |
+| `atlas learn <topic> [path]` | Suggested reading order (box diagram) |
+| `atlas explain <topic> [path] --no-llm` | Overview, walkthrough, citations, snippets |
+
+`--color` forces highlighting. `NO_COLOR=1` turns it off.
+
+<details>
+<summary><strong>What the rank score means</strong></summary>
+
+When you see `score` in `architecture` or `top-files`, that's a **heuristic importance number** from the static graph, not LOC or git blame.
+
+| Signal | Weight | Meaning |
+|--------|--------|---------|
+| Inbound refs | ×3 | Other files import or call into this one |
+| Outbound refs | ×0.5 | This file imports or calls outward |
+| Definitions | ×0.3 | Functions/classes defined here |
+| Entrypoint | +40 | Likely app entry (`main.py`, `index.ts`, etc.) |
+
+Path penalties: tests (×0.05), docs/config (×0.1), vendor-ish paths (×0.25). Subsystem scores sum file scores in that cluster. **Use ordering, not absolute numbers** (80 on one repo ≠ 80 on another).
+
+</details>
+
+---
+
+## Example output
+
+`architecture` and `top-files` use plain lists. **`flow`**, **`learn`**, and **`explain`** stack box diagrams with `▼` between steps.
+
+**Flow** (`atlas flow login tests/fixtures/demo_app`):
+
+```text
+Flow: login
+  seed login_handler
+
+                          ╭──────────────────────────╮
+                          │      login_handler       │
+                          │    auth/routes.py:21     │
+                          ╰─────────────┬────────────╯
+                                        │
+                                        ▼
+                          ╭──────────────────────────╮
+                          │          login           │
+                          │    auth/service.py:16    │
+                          ╰─────────────┬────────────╯
+                                        │
+                                       ...
+```
+
+**Learn** and **explain** use the same box style for reading order, then citations and syntax-highlighted snippets below. See `atlas learn auth` / `atlas explain auth --no-llm` on [demo_app](tests/fixtures/demo_app).
 
 ---
 
 ## How it works
 
 ```mermaid
-flowchart LR
-    scan["atlas scan"] --> parse[Tree-sitter]
-    parse --> store[(SQLite graph)]
-    store --> out["architecture / flow / explain"]
-    out --> llm["LLM narrator v1.1"]
+flowchart TD
+    repo[Repository] --> scan[Inventory scan]
+    scan --> parse[Tree-sitter extraction]
+    parse --> symgraph[(Symbol graph · SQLite)]
+    symgraph --> sub[Subsystem detection]
+    symgraph --> rank[File ranking]
+    symgraph --> flow[Flow inference]
+    sub --> arch[architecture]
+    rank --> top[top-files]
+    flow --> intel[flow · learn · explain]
+    intel --> llm[Optional LLM v1.1]
 ```
 
-1. **Scan:** respect `.gitignore`, skip `node_modules` and build junk.
-2. **Parse:** Tree-sitter pulls imports, defs, calls (best effort).
-3. **Graph:** SQLite in `.atlas/graph.db`.
-4. **Intelligence:** rank files, cluster subsystems, seed flows, template explain.
-5. **Output:** terminal reports you can read in a few minutes.
-
-The graph is the product. Any LLM layer (v1.1) has to cite that graph. No invented structure.
+1. **Scan:** `.gitignore`, skip `node_modules` and build junk.
+2. **Parse:** imports, definitions, calls (best effort).
+3. **Graph:** persisted in `.atlas/graph.db`.
+4. **Intelligence:** cluster subsystems, rank files, seed flows, template explain.
+5. **Output:** terminal reports in minutes, not hours of folder spelunking.
 
 ---
 
@@ -294,9 +275,7 @@ The graph is the product. Any LLM layer (v1.1) has to cite that graph. No invent
 | Go | `.go` | Works |
 | C | `.c`, `.h` | Works (rough on huge/kernel trees) |
 
-**Next up (v1.1+):** Rust, Java, C#, C++, Kotlin.
-
-Everything else gets skipped; scan summary tells you how many. Files over 5 MB are skipped too.
+**Next up (v1.1+):** Rust, Java, C#, C++, Kotlin. Unsupported files are skipped; scan summary shows counts. Files over 5 MB are not parsed.
 
 ---
 
@@ -309,11 +288,11 @@ Everything else gets skipped; scan summary tells you how many. Files over 5 MB a
   graph.db         # the graph + scores
 ```
 
-Lives in the **repo you scanned**, not next to the Atlas binary. Delete it anytime; `atlas scan --force` rebuilds. Gitignored. Your machine only.
+Lives in the **repo you scanned**, not next to the Atlas binary. Delete anytime; `atlas scan --force` rebuilds. Gitignored. Your machine only.
 
 ---
 
-## Limitations (v1, on purpose)
+## Limitations (v1)
 
 Shipped what works. Known gaps:
 
@@ -326,31 +305,16 @@ Shipped what works. Known gaps:
 
 ---
 
-## Project layout
-
-```text
-src/
-  scan/           filesystem inventory
-  parse/          tree-sitter extraction
-  graph/          SQLite nodes, edges, ranking
-  intelligence/   subsystems, flows, explain
-  commands/       CLI output
-tests/fixtures/   demo_app, ugly_app, c_sample
-```
-
----
-
 ## Development
 
 ```powershell
 cargo test
-cargo install --path .   # puts `atlas` on PATH
-cargo build --release    # or just build under target/release/
+cargo install --path .
 ```
 
 Contributors: run `cargo test` and try the fixtures before opening a PR.
 
-**Shipped:** [v1.0.0](https://github.com/rohan1903/atlas/releases/tag/v1.0.0) with `scan`, `architecture`, `top-files`, `flow`, `learn`, `explain --no-llm`.
+**Shipped:** [v1.0.0](https://github.com/rohan1903/atlas/releases/tag/v1.0.0).
 
 ---
 
@@ -360,8 +324,6 @@ Contributors: run `cargo test` and try the fixtures before opening a PR.
 2. Paste full terminal output + which command broke.
 3. Reproduce on a fixture if you can.
 4. Open a GitHub issue with repro steps.
-
-Issues welcome on GitHub.
 
 ---
 
@@ -373,6 +335,6 @@ Issues welcome on GitHub.
 
 <div align="center">
 
-**Atlas v1.0.0** · graph-first onboarding, built in public
+**Atlas v1.0.0** · repository onboarding, built in public
 
 </div>
