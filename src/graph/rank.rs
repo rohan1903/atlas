@@ -46,7 +46,7 @@ pub fn rank_files(
         }
 
         if paths::is_test_path(path) {
-            score *= 0.2;
+            score *= 0.05;
         }
 
         if paths::is_project_metadata_path(path) {
@@ -88,7 +88,18 @@ pub fn rank_files(
     Ok(ranked)
 }
 
-pub fn load_top_files(connection: &Connection, limit: usize) -> Result<Vec<RankedFile>, String> {
+pub fn load_top_files(
+    connection: &Connection,
+    limit: usize,
+    include_tests: bool,
+    include_metadata: bool,
+) -> Result<Vec<RankedFile>, String> {
+    let fetch_limit = if include_tests && include_metadata {
+        limit
+    } else {
+        limit.saturating_mul(12).max(limit)
+    };
+
     let mut statement = connection
         .prepare(
             "SELECT file_path, score, inbound_refs, outbound_refs, definitions, is_entrypoint
@@ -99,7 +110,7 @@ pub fn load_top_files(connection: &Connection, limit: usize) -> Result<Vec<Ranke
         .map_err(|error| format!("could not query file scores: {error}"))?;
 
     let rows = statement
-        .query_map([limit as i64], |row| {
+        .query_map([fetch_limit as i64], |row| {
             Ok(RankedFile {
                 file_path: row.get(0)?,
                 score: row.get(1)?,
@@ -111,8 +122,20 @@ pub fn load_top_files(connection: &Connection, limit: usize) -> Result<Vec<Ranke
         })
         .map_err(|error| format!("could not read file scores: {error}"))?;
 
-    rows.collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("could not collect file scores: {error}"))
+    let mut ranked = rows
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("could not collect file scores: {error}"))?;
+
+    if !include_tests {
+        ranked.retain(|file| !paths::is_test_path(&file.file_path));
+    }
+
+    if !include_metadata {
+        ranked.retain(|file| !paths::is_config_or_docs_path(&file.file_path));
+    }
+
+    ranked.truncate(limit);
+    Ok(ranked)
 }
 
 fn inbound_import_counts(connection: &Connection) -> Result<HashMap<String, usize>, String> {
@@ -243,5 +266,63 @@ mod tests {
 
         assert!(util_rank < notes_rank);
         assert!(ranked[util_rank].inbound_refs >= 1);
+    }
+
+    #[test]
+    fn excludes_test_files_by_default() {
+        use crate::parse::Call;
+
+        let connection = Connection::open_in_memory().expect("open db");
+        init(&connection).expect("init db");
+        let inventory = vec![
+            InventoryFile {
+                path: "app.py".to_string(),
+                size_bytes: 1,
+            },
+            InventoryFile {
+                path: "tests/test_app.py".to_string(),
+                size_bytes: 1,
+            },
+        ];
+        let parsed = vec![
+            ParsedFile {
+                path: "app.py".to_string(),
+                language: "python".to_string(),
+                definitions: vec![Definition {
+                    kind: "function".to_string(),
+                    name: "run".to_string(),
+                    line: 1,
+                }],
+                imports: vec![],
+                calls: vec![],
+            },
+            ParsedFile {
+                path: "tests/test_app.py".to_string(),
+                language: "python".to_string(),
+                definitions: vec![Definition {
+                    kind: "function".to_string(),
+                    name: "test_run".to_string(),
+                    line: 1,
+                }],
+                imports: vec![],
+                calls: vec![Call {
+                    target: "mock".to_string(),
+                    line: 2,
+                }],
+            },
+        ];
+
+        build_graph(&connection, &inventory, &parsed).expect("build graph");
+        rank_files(&connection, &inventory, &parsed).expect("rank files");
+
+        let production = load_top_files(&connection, 10, false, false).expect("production top files");
+        assert!(production.iter().all(|file| !paths::is_test_path(&file.file_path)));
+        assert!(production
+            .iter()
+            .all(|file| !paths::is_config_or_docs_path(&file.file_path)));
+        assert_eq!(production[0].file_path, "app.py");
+
+        let with_tests = load_top_files(&connection, 10, true, false).expect("with tests");
+        assert!(with_tests.iter().any(|file| file.file_path == "tests/test_app.py"));
     }
 }

@@ -7,6 +7,7 @@ use crate::paths;
 
 const MAX_DEPTH: usize = 12;
 const MAX_STEPS: usize = 24;
+const COMPRESSED_FLOW_LIMIT: usize = 8;
 
 #[derive(Debug, Clone)]
 pub struct FlowStep {
@@ -48,30 +49,141 @@ pub fn extract_flow(repo: &Path, query: &str) -> Result<FlowResult, String> {
     }
 
     let index = DefinitionIndex::from_symbols(&symbols);
-    let seeds = find_seeds(&symbols, &normalized_query);
+    let mut seeds = find_seeds(&symbols, &normalized_query);
     if seeds.is_empty() {
         return Err(format!(
             "no flow seed found for '{query}' — try a function, route, or file name from the scan"
         ));
     }
 
-    let best_seed = seeds
-        .into_iter()
-        .max_by_key(|seed| seed.score)
-        .expect("seed list checked");
+    seeds.sort_by(|left, right| right.score.cmp(&left.score));
 
-    let steps = trace_flow(&best_seed, &symbols, &index);
-    if steps.len() <= 1 {
+    let mut best: Option<(Seed, Vec<FlowStep>)> = None;
+    for seed in seeds {
+        let steps = trace_flow(&seed, &symbols, &index);
+        if steps.len() <= 1 {
+            continue;
+        }
+        best = Some((seed, steps));
+        break;
+    }
+
+    let Some((best_seed, steps)) = best else {
         return Err(format!(
             "seed found for '{query}' but no downstream calls were resolved — graph may be incomplete"
         ));
-    }
+    };
 
     Ok(FlowResult {
         query: query.to_string(),
         seed: best_seed.definition.name.clone(),
         steps,
     })
+}
+
+pub fn compress_flow_steps(steps: &[FlowStep], verbose: bool) -> Vec<FlowStep> {
+    if verbose || steps.len() <= 2 {
+        return steps.to_vec();
+    }
+
+    let mut compressed: Vec<FlowStep> = steps
+        .iter()
+        .filter(|step| is_primary_flow_step(&step.label, &step.file, &step.kind))
+        .cloned()
+        .collect();
+
+    if compressed.len() < 2 {
+        compressed = steps
+            .iter()
+            .filter(|step| !is_supporting_flow_step(&step.label, &step.file, &step.kind))
+            .cloned()
+            .collect();
+    }
+
+    if compressed.len() < 2 {
+        return cap_flow_steps(steps, COMPRESSED_FLOW_LIMIT.min(steps.len().max(2)));
+    }
+
+    cap_flow_steps(&compressed, COMPRESSED_FLOW_LIMIT)
+}
+
+fn cap_flow_steps(steps: &[FlowStep], limit: usize) -> Vec<FlowStep> {
+    steps.iter().take(limit).cloned().collect()
+}
+
+pub fn flow_subsystem_score(flow: &FlowResult, target_key: &str) -> i32 {
+    let Some(first) = flow.steps.first() else {
+        return 0;
+    };
+
+    if subsystem_key(&first.file) != target_key {
+        return 0;
+    }
+
+    let in_subsystem = flow
+        .steps
+        .iter()
+        .filter(|step| subsystem_key(&step.file) == target_key)
+        .count();
+
+    let mut score = 300 + in_subsystem as i32 * 40;
+    score += (24_i32).saturating_sub(flow.steps.len() as i32);
+    score
+}
+
+fn is_primary_flow_step(name: &str, file: &str, kind: &str) -> bool {
+    if is_flow_noise(name, file, kind) || is_supporting_flow_step(name, file, kind) {
+        return false;
+    }
+
+    let name_lower = name.to_lowercase();
+    name_lower.contains("process_")
+        || name_lower.contains("validate_")
+        || name_lower.contains("parse_")
+        || name_lower.contains("verify")
+        || name_lower.contains("register")
+        || name_lower.contains("login")
+        || name_lower.contains("logout")
+        || name_lower.contains("checkin")
+        || name_lower.contains("checkout")
+        || name_lower.contains("create_")
+        || name_lower.contains("handle_")
+        || name_lower.ends_with("_handler")
+        || name_lower.ends_with("_gate")
+        || name_lower.contains("_verify_and_")
+        || name_lower.contains("get_by_")
+        || name_lower.contains("record_")
+        || name_lower.contains("generate_")
+        || name_lower.contains("invalidate_")
+        || name_lower.contains("update_qr")
+        || name_lower.contains("get_face")
+        || name_lower.contains("find_all_face")
+        || name_lower.contains("detect_twin")
+}
+
+fn is_supporting_flow_step(name: &str, file: &str, kind: &str) -> bool {
+    if is_flow_noise(name, file, kind) {
+        return true;
+    }
+
+    let name_lower = name.to_lowercase();
+    if is_db_mock_helper(&name_lower) {
+        return true;
+    }
+
+    (name_lower.starts_with("send_") && name_lower.ends_with("_email"))
+        || name_lower == "l2_distance"
+        || name_lower == "absolute_feedback_link"
+        || name_lower == "send_exceeded_email"
+        || name_lower == "process_checkout"
+        || name_lower == "collect_department_choices"
+}
+
+fn is_db_mock_helper(name: &str) -> bool {
+    matches!(
+        name,
+        "get" | "set" | "child" | "update" | "db_reference" | "get_or_create"
+    )
 }
 
 fn trace_flow(seed: &Seed, symbols: &ParseOutput, index: &DefinitionIndex) -> Vec<FlowStep> {
@@ -196,6 +308,28 @@ fn score_seed(parsed: &ParsedFile, definition: &Definition, query: &str) -> i32 
 
     if name == format!("{query}_handler") || name == format!("handle_{query}") {
         score += 100;
+    }
+
+    if name.ends_with("_success")
+        || name.ends_with("_page")
+        || name.ends_with("_template")
+        || name.ends_with("_backup")
+    {
+        score -= 100;
+    }
+
+    if name == format!("{query}_gate") {
+        score += 120;
+    } else if name.ends_with("_gate") {
+        score += 70;
+    } else if name.contains("_verify_and_") {
+        score += 25;
+    } else if name.ends_with("_verify") {
+        score += 40;
+    }
+
+    if name.starts_with(&format!("{query}_")) && !name.ends_with("_success") {
+        score += 35;
     }
 
     if path.contains("routes") && name.contains(query) {
@@ -648,6 +782,50 @@ mod tests {
     }
 
     #[test]
+    fn prefers_gate_handler_over_success_template() {
+        let symbols = ParseOutput {
+            version: 1,
+            summary: ParseSummary::default(),
+            files: vec![ParsedFile {
+                path: "gate/app.py".to_string(),
+                language: "python".to_string(),
+                definitions: vec![
+                    Definition {
+                        kind: "function".to_string(),
+                        name: "checkin_gate".to_string(),
+                        line: 705,
+                    },
+                    Definition {
+                        kind: "function".to_string(),
+                        name: "checkin_verify_and_log".to_string(),
+                        line: 964,
+                    },
+                    Definition {
+                        kind: "function".to_string(),
+                        name: "checkin_success".to_string(),
+                        line: 1762,
+                    },
+                ],
+                imports: vec![],
+                calls: vec![
+                    Call {
+                        target: "checkin_verify_and_log".to_string(),
+                        line: 706,
+                    },
+                    Call {
+                        target: "get".to_string(),
+                        line: 1763,
+                    },
+                ],
+            }],
+        };
+
+        let seeds = find_seeds(&symbols, "checkin");
+        let seed = seeds.into_iter().max_by_key(|seed| seed.score).unwrap();
+        assert_eq!(seed.definition.name, "checkin_gate");
+    }
+
+    #[test]
     fn prefers_imported_module_over_legacy_duplicate() {
         let symbols = ParseOutput {
             version: 1,
@@ -703,5 +881,109 @@ mod tests {
         let labels: Vec<_> = steps.iter().map(|step| step.label.as_str()).collect();
         assert_eq!(labels, vec!["login_handler", "login"]);
         assert_eq!(steps[1].file, "auth/service.py");
+    }
+
+    #[test]
+    fn compresses_noisy_checkin_chain() {
+        let steps = vec![
+            FlowStep {
+                label: "checkin_verify_and_log".to_string(),
+                kind: "function".to_string(),
+                file: "gate/app.py".to_string(),
+                line: Some(964),
+            },
+            FlowStep {
+                label: "get".to_string(),
+                kind: "function".to_string(),
+                file: "gate/app.py".to_string(),
+                line: Some(106),
+            },
+            FlowStep {
+                label: "parse_qr_payload".to_string(),
+                kind: "function".to_string(),
+                file: "gate/qr_module.py".to_string(),
+                line: Some(159),
+            },
+            FlowStep {
+                label: "validate_qr_token".to_string(),
+                kind: "function".to_string(),
+                file: "gate/qr_module.py".to_string(),
+                line: Some(177),
+            },
+            FlowStep {
+                label: "child".to_string(),
+                kind: "function".to_string(),
+                file: "gate/app.py".to_string(),
+                line: Some(87),
+            },
+            FlowStep {
+                label: "process_checkin".to_string(),
+                kind: "function".to_string(),
+                file: "gate/app.py".to_string(),
+                line: Some(1509),
+            },
+            FlowStep {
+                label: "l2_distance".to_string(),
+                kind: "function".to_string(),
+                file: "gate/app.py".to_string(),
+                line: Some(266),
+            },
+        ];
+
+        let compressed = compress_flow_steps(&steps, false);
+        assert!(compressed.len() < steps.len());
+        assert!(!compressed.iter().any(|step| step.label == "get"));
+        assert!(!compressed.iter().any(|step| step.label == "child"));
+        assert!(!compressed.iter().any(|step| step.label == "l2_distance"));
+        assert_eq!(
+            compressed.first().map(|step| step.label.as_str()),
+            Some("checkin_verify_and_log")
+        );
+        assert!(compressed.iter().any(|step| step.label == "process_checkin"));
+        assert_eq!(compress_flow_steps(&steps, true).len(), steps.len());
+    }
+
+    #[test]
+    fn flow_subsystem_score_requires_seed_in_target_subsystem() {
+        let registration_flow = FlowResult {
+            query: "register".to_string(),
+            seed: "finalize_registration".to_string(),
+            steps: vec![
+                FlowStep {
+                    label: "finalize_registration".to_string(),
+                    kind: "function".to_string(),
+                    file: "registration/app.py".to_string(),
+                    line: Some(1085),
+                },
+                FlowStep {
+                    label: "get_face_embedding".to_string(),
+                    kind: "function".to_string(),
+                    file: "registration/app.py".to_string(),
+                    line: Some(524),
+                },
+            ],
+        };
+        let gate_flow = FlowResult {
+            query: "checkin".to_string(),
+            seed: "checkin_verify_and_log".to_string(),
+            steps: vec![
+                FlowStep {
+                    label: "checkin_verify_and_log".to_string(),
+                    kind: "function".to_string(),
+                    file: "gate/app.py".to_string(),
+                    line: Some(964),
+                },
+                FlowStep {
+                    label: "parse_qr_payload".to_string(),
+                    kind: "function".to_string(),
+                    file: "gate/qr_module.py".to_string(),
+                    line: Some(159),
+                },
+            ],
+        };
+
+        assert!(flow_subsystem_score(&registration_flow, "registration") > 0);
+        assert_eq!(flow_subsystem_score(&gate_flow, "registration"), 0);
+        assert!(flow_subsystem_score(&gate_flow, "gate") > 0);
     }
 }

@@ -62,18 +62,8 @@ pub fn resolve_anchor(
         }
     }
 
-    let topic_lower = topic.trim().to_lowercase();
-    if !topic_lower.is_empty() {
-        if let Some(definition) = parsed.definitions.iter().find(|definition| {
-            definition.name.to_lowercase().contains(&topic_lower)
-        }) {
-            if definition.kind == "class" {
-                if let Some(method) = pick_method_after_line(parsed, definition.line) {
-                    return Some(method);
-                }
-            }
-            return Some((definition.line, definition.name.clone()));
-        }
+    if let Some(anchor) = pick_best_topic_anchor(parsed, topic, role) {
+        return Some(anchor);
     }
 
     if let Some((line, name)) = pick_entry_method(parsed) {
@@ -104,6 +94,133 @@ pub fn resolve_anchor(
         .find(|definition| definition.kind == "class")
         .or_else(|| parsed.definitions.first())
         .map(|definition| (definition.line, definition.name.clone()))
+}
+
+fn pick_best_topic_anchor(
+    parsed: &ParsedFile,
+    topic: &str,
+    role: &str,
+) -> Option<(usize, String)> {
+    let topic_lower = topic.trim().to_lowercase();
+    if topic_lower.is_empty() {
+        return None;
+    }
+
+    let mut best: Option<(i32, usize, String)> = None;
+    for definition in parsed.definitions.iter().filter(|definition| {
+        matches!(definition.kind.as_str(), "function" | "method")
+    }) {
+        let score = score_anchor_candidate(parsed, definition, &topic_lower, role);
+        if score <= 0 {
+            continue;
+        }
+        let candidate = (score, definition.line, definition.name.clone());
+        if best.as_ref().is_none_or(|(best_score, _, _)| candidate.0 > *best_score) {
+            best = Some(candidate);
+        }
+    }
+
+    best.map(|(_, line, name)| (line, name))
+}
+
+fn score_anchor_candidate(
+    parsed: &ParsedFile,
+    definition: &Definition,
+    topic: &str,
+    role: &str,
+) -> i32 {
+    let name = definition.name.to_lowercase();
+    let mut score = 0;
+
+    if name.starts_with('_') {
+        return 0;
+    }
+
+    if has_nearby_route(parsed, definition.line, topic) {
+        score += 220;
+    }
+
+    if name == topic {
+        score += 160;
+    } else if name.contains(topic) {
+        score += 90;
+    }
+
+    for alias in topic_aliases(topic) {
+        if name == alias {
+            score += 140;
+        } else if name.contains(&alias) {
+            score += 80;
+        }
+    }
+
+    if name.ends_with("_page") || name.ends_with("_handler") {
+        score += 45;
+    }
+
+    if name.ends_with("_gate") || name.contains("_verify") {
+        score += 35;
+    }
+
+    if name.contains("_rate_limit")
+        || name.contains("_pre_")
+        || name.contains("_blacklist_block")
+        || name.contains("build_mock")
+    {
+        score -= 120;
+    }
+
+    let role_lower = role.to_lowercase();
+    if (role_lower.contains("entrypoint") || role_lower.contains("http") || role_lower.contains("route"))
+        && (name.contains("register")
+            || name.contains("verify")
+            || name.contains("login")
+            || name.contains("checkin")
+            || name.contains("checkout"))
+    {
+        score += 40;
+    }
+
+    score
+}
+
+fn topic_aliases(topic: &str) -> Vec<String> {
+    let mut aliases = Vec::new();
+    if topic.contains("registration") {
+        aliases.push("register".to_string());
+        aliases.push("verify".to_string());
+    }
+    if topic.contains("auth") {
+        aliases.push("login".to_string());
+        aliases.push("logout".to_string());
+    }
+    if topic.contains("gate") {
+        aliases.push("checkin".to_string());
+        aliases.push("checkout".to_string());
+    }
+    aliases
+}
+
+fn has_nearby_route(parsed: &ParsedFile, function_line: usize, topic: &str) -> bool {
+    parsed
+        .definitions
+        .iter()
+        .filter(|definition| definition.kind == "route" && definition.line < function_line)
+        .filter(|route| function_line.saturating_sub(route.line) <= 6)
+        .any(|route| route_matches_topic(&route.name, topic))
+}
+
+fn route_matches_topic(route_name: &str, topic: &str) -> bool {
+    let route_lower = route_name.to_lowercase();
+    if route_lower.contains(topic) {
+        return true;
+    }
+    for alias in topic_aliases(topic) {
+        if route_lower.contains(&alias) {
+            return true;
+        }
+    }
+    false
 }
 
 fn pick_entry_method(parsed: &ParsedFile) -> Option<(usize, String)> {
@@ -324,5 +441,46 @@ mod tests {
 
         let anchor = resolve_anchor(&parsed, "login", "HTTP routes", None).expect("anchor");
         assert_eq!(anchor, (21, "login_handler".to_string()));
+    }
+
+    #[test]
+    fn resolve_anchor_skips_private_registration_helpers() {
+        let parsed = ParsedFile {
+            path: "registration/app.py".to_string(),
+            language: "python".to_string(),
+            definitions: vec![
+                Definition {
+                    kind: "function".to_string(),
+                    name: "_registration_pre_rate_limit".to_string(),
+                    line: 166,
+                },
+                Definition {
+                    kind: "route".to_string(),
+                    name: "/register".to_string(),
+                    line: 893,
+                },
+                Definition {
+                    kind: "function".to_string(),
+                    name: "register_page".to_string(),
+                    line: 894,
+                },
+                Definition {
+                    kind: "route".to_string(),
+                    name: "/verify-face".to_string(),
+                    line: 2012,
+                },
+                Definition {
+                    kind: "function".to_string(),
+                    name: "verify_face".to_string(),
+                    line: 2013,
+                },
+            ],
+            imports: Vec::new(),
+            calls: Vec::new(),
+        };
+
+        let anchor =
+            resolve_anchor(&parsed, "registration", "entrypoint", None).expect("anchor");
+        assert_eq!(anchor.1, "register_page");
     }
 }

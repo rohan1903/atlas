@@ -65,6 +65,14 @@ enum Commands {
         /// Maximum number of files to show
         #[arg(long, default_value_t = commands::top_files::default_limit())]
         limit: usize,
+
+        /// Include test files in the ranked list (excluded by default)
+        #[arg(long)]
+        include_tests: bool,
+
+        /// Include docs, config, and deployment files (excluded by default)
+        #[arg(long)]
+        include_metadata: bool,
     },
     /// Trace an execution path for a function or feature name
     Flow {
@@ -74,6 +82,10 @@ enum Commands {
         /// Repository that was previously scanned
         #[arg(default_value = ".")]
         path: PathBuf,
+
+        /// Show the full call graph instead of a compressed primary path
+        #[arg(long)]
+        verbose: bool,
     },
     /// Show a recommended reading order for a subsystem topic
     Learn {
@@ -120,17 +132,28 @@ fn main() {
                 Err(error) => Err(error),
             }
         }
-        Commands::TopFiles { path, limit } => {
+        Commands::TopFiles {
+            path,
+            limit,
+            include_tests,
+            include_metadata,
+        } => {
             let repo = store::resolve_repo(&path);
             match repo {
-                Ok(repo) => commands::top_files::run(&repo, limit),
+                Ok(repo) => {
+                    commands::top_files::run(&repo, limit, include_tests, include_metadata)
+                }
                 Err(error) => Err(error),
             }
         }
-        Commands::Flow { path, name } => {
+        Commands::Flow {
+            path,
+            name,
+            verbose,
+        } => {
             let repo = store::resolve_repo(&path);
             match repo {
-                Ok(repo) => commands::flow::run(&repo, &name),
+                Ok(repo) => commands::flow::run(&repo, &name, verbose),
                 Err(error) => Err(error),
             }
         }
