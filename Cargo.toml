@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Repository intelligence for large codebases"
 readme = "README.md"
+license = "MIT"
 
 [[bin]]
 name = "atlas"

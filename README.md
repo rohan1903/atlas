@@ -2,55 +2,154 @@
 
 # Atlas
 
-**Repository intelligence for large codebases — not another AI coding assistant.**
+**Deterministic repository intelligence for onboarding — not an AI coding assistant.**
 
-Understand what a system does, which files matter, and what to read first — from a deterministic graph, not an LLM guess.
+Understand architecture, important files, and where to start reading — from a static call graph, not an LLM guess.
 
 <br/>
 
+[![Release](https://img.shields.io/github/v/release/rohan1903/atlas?style=for-the-badge&label=v1.0.0)](https://github.com/rohan1903/atlas/releases/tag/v1.0.0)
 [![Rust](https://img.shields.io/badge/Rust-1.70+-orange?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![Version](https://img.shields.io/badge/Version-v1.0-blue?style=for-the-badge)](ROADMAP.md)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=for-the-badge)](#prerequisites)
-[![Local First](https://img.shields.io/badge/Cloud-None%20required-success?style=for-the-badge)](#local-data-atlas)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=for-the-badge)](#installation)
+[![Local first](https://img.shields.io/badge/Cloud-not%20required-success?style=for-the-badge)](#local-cache-atlas)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 
 <br/>
 
-**Parsed languages**
-
-[![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)](#supported-languages-mvp)
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](#supported-languages-mvp)
-[![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black)](#supported-languages-mvp)
-[![Go](https://img.shields.io/badge/Go-00ADD8?style=flat-square&logo=go&logoColor=white)](#supported-languages-mvp)
-[![C](https://img.shields.io/badge/C-A8B9CC?style=flat-square&logo=c&logoColor=black)](#supported-languages-mvp)
-
-<br/>
-
+[Installation](#installation) ·
 [Quick start](#quick-start) ·
 [Commands](#commands) ·
-[How it works](#how-it-works) ·
+[Example output](#example-output) ·
 [Roadmap](ROADMAP.md)
 
 </div>
 
 ---
 
-## What Atlas answers
+## Why Atlas
 
-| Question | Command |
-|----------|---------|
-| What does this system do? | `atlas architecture` |
-| How is it organized? | `atlas architecture` |
-| What are the most important files? | `atlas top-files` |
-| How does a feature work? | `atlas flow` · `atlas explain` |
-| What should I read first? | `atlas learn` |
-| How does execution get here? | `atlas explain` |
+When you join an unfamiliar codebase, you ask the same questions:
 
-## What Atlas does **not** do
+- What are the major parts of this system?
+- Which files should I read first?
+- How does a feature like *auth* or *check-in* flow through the code?
 
-- Write or modify production code
-- Replace your IDE or code review
-- Run autonomous agents or create pull requests
-- Require cloud services for core analysis (everything stays local)
+Atlas answers those from **structure** — scans, parses, builds a graph, ranks files, traces flows — without calling an LLM. Explanations in v1 use graph evidence and code snippets (`explain --no-llm`). Optional LLM narration is planned for v1.1.
+
+| Atlas **is** | Atlas **is not** |
+|--------------|------------------|
+| An onboarding map for large repos | A code generator or IDE replacement |
+| Local-first (`.atlas/` on disk) | A cloud analysis service |
+| Deterministic graph + heuristics | An autonomous agent |
+| Honest about approximate graphs | A source of invented file paths |
+
+---
+
+## Installation
+
+**Requirements:** [Rust](https://rustup.rs/) 1.70+ (`rustc`, `cargo`), Git (optional).
+
+```powershell
+git clone https://github.com/rohan1903/atlas.git
+cd atlas
+cargo build --release
+```
+
+Binary: `target/release/atlas.exe` (Windows) or `target/release/atlas` (Linux/macOS).
+
+<details>
+<summary><strong>First-time Rust on Windows</strong></summary>
+
+1. Install from [rustup.rs](https://rustup.rs/) (default options).
+2. Restart your terminal.
+3. Verify: `rustc --version` and `cargo --version`.
+
+The first `cargo build` downloads dependencies and may take several minutes.
+
+</details>
+
+---
+
+## Quick start
+
+Point Atlas at any repository. It writes a cache under `.atlas/` in that repo.
+
+```powershell
+# Build once
+cargo build --release
+
+# Scan a project (use your own path or the bundled fixtures)
+.\target\release\atlas.exe scan tests/fixtures/demo_app --force
+
+# Orientation
+.\target\release\atlas.exe architecture tests/fixtures/demo_app
+.\target\release\atlas.exe top-files tests/fixtures/demo_app
+
+# Feature-level reading
+.\target\release\atlas.exe flow login tests/fixtures/demo_app
+.\target\release\atlas.exe learn auth tests/fixtures/demo_app
+.\target\release\atlas.exe explain auth tests/fixtures/demo_app --no-llm
+```
+
+**Linux / macOS:** replace `.\target\release\atlas.exe` with `./target/release/atlas`.
+
+Fixtures: [demo_app](tests/fixtures/demo_app) (clean), [ugly_app](tests/fixtures/ugly_app) (stress test). Real-repo benchmark: [Starlette](tests/benchmarks/README.md).
+
+---
+
+## Commands
+
+| Command | Purpose |
+|---------|---------|
+| `atlas scan [path]` | Inventory + parse + graph → `.atlas/` |
+| `atlas scan --force` | Rebuild cache from scratch |
+| `atlas architecture [path]` | Subsystems, entrypoints, critical files |
+| `atlas top-files [path]` | Ranked **code files** (tests/docs excluded by default) |
+| `atlas top-files --include-tests` | Include test files |
+| `atlas top-files --include-metadata` | Include README, config, requirements, etc. |
+| `atlas flow <name> [path]` | Compressed primary execution path |
+| `atlas flow <name> --verbose` | Full call-graph trace |
+| `atlas learn <topic> [path]` | Reading order for a subsystem |
+| `atlas explain <topic> [path] --no-llm` | Overview, walkthrough, citations, snippets |
+
+Global: `--color` forces syntax highlighting; `NO_COLOR=1` disables colors.
+
+---
+
+## Example output
+
+**Architecture** — subsystems and entrypoints without reading every folder:
+
+```text
+Subsystems
+  1. Auth (5 files, score 42, internal links 3)
+     top: auth/routes.py, auth/service.py, auth/repository.py
+  2. Orders (4 files, ...)
+
+Entrypoints
+  - main.py
+  - api/router.py
+```
+
+**Flow** — primary path (full graph with `--verbose`):
+
+```text
+Flow: login
+  seed login_handler
+
+  login_handler  →  login  →  get_by_email  →  verify_password  →  create_access_token
+```
+
+**Explain** — graph-grounded reading order with real citations (v1 template mode):
+
+```text
+Topic: auth
+Citations
+  1. auth/routes.py @ login_handler:21
+  2. auth/service.py @ login:16
+Snippets
+  (syntax-highlighted source from those files)
+```
 
 ---
 
@@ -58,203 +157,107 @@ Understand what a system does, which files matter, and what to read first — fr
 
 ```mermaid
 flowchart LR
-    scan["atlas scan"] --> inventory[FileInventory]
-    inventory --> parse[TreeSitterParsing]
-    parse --> repoGraph[RepositoryGraph]
-    repoGraph --> intel[RankingAndSubsystems]
-    intel --> cli[TerminalCommands]
-    intel --> llm["LLM explanations (v1.1)"]
+    scan["atlas scan"] --> parse[Tree-sitter]
+    parse --> graph[(SQLite graph)]
+    graph --> out[architecture · top-files · flow · explain]
+    out --> llm["LLM narrator (v1.1)"]
 ```
 
-| Step | What happens |
-|------|----------------|
-| **Scan** | Walk the repo, respect `.gitignore`, skip junk (`node_modules`, build output, etc.) |
-| **Parse** | Tree-sitter extracts structure (imports, functions, calls) |
-| **Graph** | Nodes and edges stored in SQLite under `.atlas/` |
-| **Intelligence** | Ranking, subsystems, flows — deterministic, no AI |
-| **Commands** | Terminal output you can read in minutes |
-| **LLM** *(v1.1)* | Optional narration grounded in graph evidence |
+1. **Scan** — walk the tree, respect `.gitignore`, skip `node_modules` and build artifacts.
+2. **Parse** — Tree-sitter extracts imports, definitions, and call expressions (best-effort).
+3. **Graph** — files, functions, and edges stored in `.atlas/graph.db`.
+4. **Intelligence** — ranking, subsystem clustering, flow seeds, explain templates.
+5. **Output** — terminal reports you can skim in minutes.
 
-**Core principle:** the repository graph is the source of truth. The LLM is a narrator, not a detective.
+**Principle:** the graph is the product. LLM narration (v1.1) must cite graph evidence — never invent structure.
 
 ---
 
-## Commands
+## Supported languages
 
-| Command | Description |
-|---------|-------------|
-| `atlas scan .` | Analyze a repository and write `.atlas/` |
-| `atlas scan . --force` | Delete and rebuild `.atlas/` from scratch |
-| `atlas scan . --list` | Print inventoried file paths (up to 50) |
-| `atlas top-files` | Show importance-ranked **code files** (tests and docs/config excluded by default) |
-| `atlas top-files --include-tests` | Include test files in the ranked list |
-| `atlas top-files --include-metadata` | Include docs, config, and deployment files |
-| `atlas architecture` | Subsystems, entrypoints, and critical files |
-| `atlas flow <name> [path]` | Trace an execution path (e.g. `atlas flow login`) |
-| `atlas flow <name> --verbose` | Full call graph instead of compressed primary path |
-| `atlas learn <topic> [path]` | Recommended reading order for a subsystem |
-| `atlas explain <topic> [path] [--no-llm]` | Graph-grounded explanation with citations and snippets |
-| `atlas --color explain …` | Force syntax highlighting in snippets |
+| Language | Extensions | Status |
+|----------|------------|--------|
+| Python | `.py` | Supported |
+| TypeScript / JavaScript | `.ts`, `.tsx`, `.js`, `.jsx` | Supported |
+| Go | `.go` | Supported |
+| C | `.c`, `.h` | Supported (approximate on large/kernel trees) |
+
+**Planned (v1.1+):** Rust, Java, C#, C++, Kotlin.
+
+Unsupported extensions are skipped with counts in the scan summary. Files over 5 MB are not parsed.
 
 ---
 
-## Quick start
-
-```powershell
-git clone https://github.com/rohan1903/atlas.git
-cd atlas
-cargo build --release
-
-# Recommended: realistic Python backend (~30 files)
-.\target\release\atlas.exe scan tests/fixtures/demo_app --force
-.\target\release\atlas.exe architecture tests/fixtures/demo_app
-.\target\release\atlas.exe top-files tests/fixtures/demo_app
-.\target\release\atlas.exe flow login tests/fixtures/demo_app
-.\target\release\atlas.exe learn auth tests/fixtures/demo_app
-.\target\release\atlas.exe explain auth tests/fixtures/demo_app --no-llm
-
-# Stress test: messy half-migrated backend
-.\target\release\atlas.exe scan tests/fixtures/ugly_app --force
-.\target\release\atlas.exe flow login tests/fixtures/ugly_app
-.\target\release\atlas.exe explain auth tests/fixtures/ugly_app --no-llm
-```
-
-<details>
-<summary><strong>Linux / macOS</strong></summary>
-
-```bash
-git clone https://github.com/rohan1903/atlas.git
-cd atlas
-cargo build --release
-
-./target/release/atlas scan tests/fixtures/demo_app --force
-./target/release/atlas explain auth tests/fixtures/demo_app --no-llm
-```
-
-</details>
-
-See [tests/fixtures/README.md](tests/fixtures/README.md) for fixture details and [tests/benchmarks/README.md](tests/benchmarks/README.md) for real-repo benchmarks (e.g. Starlette).
-
-During `scan`, progress appears on stderr (`→ Inventorying`, `→ Parsing`, `→ Building graph`). The summary includes nodes, edges, definitions, imports, and calls.
-
----
-
-## Prerequisites
-
-| Requirement | Notes |
-|-------------|-------|
-| **Rust toolchain** | `rustc` + `cargo` via [rustup](https://rustup.rs/) |
-| **Git** | Optional — useful for cloning repos to scan |
-| **A terminal** | PowerShell, Windows Terminal, or any POSIX shell |
-
-### Install Rust on Windows (one-time)
-
-If `rustc --version` fails in your terminal:
-
-1. Open [https://rustup.rs](https://rustup.rs) and download **rustup-init.exe**
-2. Run it — accept defaults (installs to `%USERPROFILE%\.cargo\bin`)
-3. **Close and reopen** your terminal (PATH update)
-4. Verify:
-
-```powershell
-rustc --version
-cargo --version
-```
-
-First `cargo build` downloads dependencies and can take several minutes. That is normal.
-
----
-
-## Build and run
-
-```powershell
-# Development run
-cargo run -- scan C:\path\to\some-repo
-
-# Release binary (faster)
-cargo build --release
-.\target\release\atlas.exe scan C:\path\to\some-repo
-.\target\release\atlas.exe architecture
-.\target\release\atlas.exe top-files
-```
-
-Run commands from inside the repo you want to analyze, or pass an explicit path to `scan`.
-
-**Colors:** Atlas uses terminal colors by default. Use `--color` to force highlighting, or set `NO_COLOR=1` to disable colors.
-
----
-
-## Local data: `.atlas/`
-
-After `atlas scan`, Atlas writes a hidden folder in the scanned repository:
+## Local cache: `.atlas/`
 
 ```text
 .atlas/
-  inventory.json   # file list from scan
-  symbols.json     # parsed definitions, imports, calls
-  graph.db         # SQLite graph and file scores
+  inventory.json   # scanned file list
+  symbols.json     # parsed structure
+  graph.db         # SQLite graph and scores
 ```
 
-- Safe to delete — run `atlas scan --force` to rebuild
-- Not meant for version control (listed in `.gitignore`)
-- Stays on your machine — no upload required
+- Created in the **scanned** repository, not in the Atlas install directory.
+- Safe to delete; run `atlas scan --force` to rebuild.
+- Ignored by git (see `.gitignore`). Stays on your machine.
 
 ---
 
-## Supported languages (MVP)
+## Limitations (v1)
 
-<div align="center">
+- Call graphs are **static** — dynamic dispatch, reflection, and framework magic may be missing.
+- Flows show **function names**, not semantic steps like “validate token” (v1.1 behavior tracing).
+- No confidence labels yet on inferred vs traced claims (v1.1).
+- `explain` without `--no-llm` waits for v1.1 Ollama/API integration.
 
-[![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
-[![Go](https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
-[![C](https://img.shields.io/badge/C-A8B9CC?style=for-the-badge&logo=c&logoColor=black)](https://en.wikipedia.org/wiki/C_(programming_language))
-
-</div>
-
-**Planned:** Rust, Java, C#, C++, Kotlin
-
-Unsupported files are skipped gracefully during scan. Files over 5MB are not parsed (counted as `too large`).
-
-### Linux kernel note
-
-C support works on kernel-scale projects, but expect **approximate** results: `#include` is not a full dependency graph, macros are invisible to Tree-sitter, and a full kernel scan takes a long time. Start with a subsystem (e.g. `drivers/gpu/drm/`) before scanning the entire tree.
+See [ROADMAP.md](ROADMAP.md) for the full v1.1 backlog.
 
 ---
 
 ## Project layout
 
 ```text
-atlas/
-├── README.md
-├── ROADMAP.md
-├── Cargo.toml
-└── src/
-    ├── main.rs
-    ├── scan/           # filesystem walker
-    ├── parse/          # tree-sitter
-    ├── graph/          # nodes, edges, sqlite
-    ├── intelligence/   # ranking, subsystems, flows, explain
-    └── commands/       # CLI output
+src/
+  scan/           filesystem inventory
+  parse/          tree-sitter extraction
+  graph/          SQLite nodes, edges, ranking
+  intelligence/   subsystems, flows, explain
+  commands/       CLI presentation
+tests/fixtures/   demo_app, ugly_app, c_sample
 ```
 
 ---
 
-## Roadmap
+## Development
 
-All build work is tracked in **[ROADMAP.md](ROADMAP.md)** — phases, checkboxes, verify steps, and debugging tips.
+```powershell
+cargo test
+cargo build --release
+```
 
-**Status:** v1.0.0 shipped (`scan`, `architecture`, `top-files`, `flow`, `learn`, `explain --no-llm`). v1.1 backlog: behavior tracing, confidence scoring, `impact`, Rust parsing, LLM narration.
+Phased build history and verify steps: [ROADMAP.md](ROADMAP.md).
+
+**Current release:** [v1.0.0](https://github.com/rohan1903/atlas/releases/tag/v1.0.0) — `scan`, `architecture`, `top-files`, `flow`, `learn`, `explain --no-llm`.
 
 ---
 
 ## Getting help
 
-1. Note which **ROADMAP phase** you are on
-2. Copy the **full terminal output**
-3. Paste it into Cursor chat
-4. Delete `.atlas/` in the target repo and run `atlas scan --force` again
-5. Try a **smaller repository** to isolate the issue
+1. Run `atlas scan --force` on the target repo after code changes.
+2. Copy the **full terminal output** and note which command failed.
+3. Try a smaller repo or fixture to isolate the issue.
+4. See the debugging guide in [ROADMAP.md](ROADMAP.md).
 
-See the debugging section in [ROADMAP.md](ROADMAP.md) for a symptom → cause → fix table.
+---
+
+## License
+
+[MIT](LICENSE) — Copyright (c) 2026 Rohan
+
+---
+
+<div align="center">
+
+**Atlas v1.0.0** — graph-first onboarding for code you did not write.
+
+</div>
