@@ -31,7 +31,7 @@ const ENTRYPOINT_LIMIT: usize = 10;
 
 pub fn analyze(repo: &Path) -> Result<ArchitectureReport, String> {
     let (connection, _db_path) = open_graph(repo)?;
-    let ranked = load_top_files(&connection, usize::MAX)?;
+    let ranked = load_top_files(&connection, usize::MAX, false, false)?;
     let import_edges = load_import_edges(&connection)?;
 
     let repository_name = repo

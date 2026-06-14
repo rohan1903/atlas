@@ -3,8 +3,9 @@ use std::path::Path;
 use crate::diagram::{self, BoxLine};
 use crate::style;
 
-pub fn run(repo: &Path, name: &str) -> Result<(), String> {
+pub fn run(repo: &Path, name: &str, verbose: bool) -> Result<(), String> {
     let flow = crate::intelligence::flow::extract_flow(repo, name)?;
+    let display_steps = crate::intelligence::flow::compress_flow_steps(&flow.steps, verbose);
 
     println!(
         "{} {}",
@@ -16,10 +17,20 @@ pub fn run(repo: &Path, name: &str) -> Result<(), String> {
         style::muted("seed"),
         style::path(&flow.seed)
     );
+    if !verbose && display_steps.len() < flow.steps.len() {
+        println!(
+            "  {} {}",
+            style::muted("showing"),
+            style::muted(&format!(
+                "primary path ({} of {} steps — use --verbose for full trace)",
+                display_steps.len(),
+                flow.steps.len()
+            ))
+        );
+    }
     println!();
 
-    let lines: Vec<BoxLine> = flow
-        .steps
+    let lines: Vec<BoxLine> = display_steps
         .iter()
         .map(|step| BoxLine {
             primary: step.label.clone(),

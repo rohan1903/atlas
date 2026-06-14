@@ -499,7 +499,7 @@ fn build_request_walkthrough(repo: &Path, evidence: &ExplainEvidence) -> Result<
         return Ok(Vec::new());
     }
 
-    let mut best: Option<(flow::FlowResult, usize)> = None;
+    let mut best: Option<(flow::FlowResult, i32)> = None;
     for query in walkthrough_queries(evidence) {
         let Ok(flow) = flow::extract_flow(repo, &query) else {
             continue;
@@ -507,9 +507,15 @@ fn build_request_walkthrough(repo: &Path, evidence: &ExplainEvidence) -> Result<
         if flow.steps.len() < 2 {
             continue;
         }
-        let step_count = flow.steps.len();
-        if best.as_ref().is_none_or(|(_, count)| step_count > *count) {
-            best = Some((flow, step_count));
+        if flow.seed.starts_with('_') || flow.steps[0].label.starts_with('_') {
+            continue;
+        }
+        let score = walkthrough_flow_score(&flow, &evidence.subsystem_key);
+        if score <= 0 {
+            continue;
+        }
+        if best.as_ref().is_none_or(|(_, best_score)| score > *best_score) {
+            best = Some((flow, score));
         }
     }
 
@@ -517,7 +523,59 @@ fn build_request_walkthrough(repo: &Path, evidence: &ExplainEvidence) -> Result<
         return Ok(Vec::new());
     };
 
-    format_flow_walkthrough(repo, &flow)
+    format_subsystem_walkthrough(repo, &flow, &evidence.subsystem_key, false)
+}
+
+fn walkthrough_flow_score(flow: &flow::FlowResult, target_key: &str) -> i32 {
+    let Some(first) = flow.steps.first() else {
+        return 0;
+    };
+
+    if subsystem_key(&first.file) != target_key {
+        return 0;
+    }
+
+    let in_subsystem = flow
+        .steps
+        .iter()
+        .filter(|step| subsystem_key(&step.file) == target_key)
+        .count();
+    let out_of_subsystem = flow.steps.len().saturating_sub(in_subsystem);
+    if in_subsystem < 2 {
+        return 0;
+    }
+
+    let mut score = flow::flow_subsystem_score(flow, target_key);
+    score += in_subsystem as i32 * 20;
+    score -= out_of_subsystem as i32 * 80;
+    score
+}
+
+fn format_subsystem_walkthrough(
+    repo: &Path,
+    flow: &flow::FlowResult,
+    target_key: &str,
+    verbose: bool,
+) -> Result<Vec<String>, String> {
+    let atlas_dir = crate::store::require_atlas_dir(repo)?;
+    let symbols = crate::parse::load_symbols(&atlas_dir)?;
+    let compressed = flow::compress_flow_steps(&flow.steps, verbose);
+    let scoped: Vec<flow::FlowStep> = compressed
+        .iter()
+        .filter(|step| subsystem_key(&step.file) == target_key)
+        .cloned()
+        .collect();
+
+    if scoped.len() < 2 {
+        return Ok(Vec::new());
+    }
+
+    let scoped_flow = flow::FlowResult {
+        query: flow.query.clone(),
+        seed: flow.seed.clone(),
+        steps: scoped,
+    };
+    format_flow_walkthrough_with_symbols(&scoped_flow, &symbols, verbose)
 }
 
 fn walkthrough_queries(evidence: &ExplainEvidence) -> Vec<String> {
@@ -536,6 +594,16 @@ fn walkthrough_queries(evidence: &ExplainEvidence) -> Vec<String> {
         push("login");
         push("register");
         push("logout");
+    }
+    if topic_lower.contains("registration") || key_lower.contains("registration") {
+        push("finalize_registration");
+        push("verify_face");
+        push("register");
+        push("verify");
+    }
+    if topic_lower.contains("gate") || key_lower.contains("gate") {
+        push("checkin");
+        push("checkout");
     }
     if topic_lower.contains("order") || key_lower.contains("order") {
         push("order");
@@ -559,8 +627,6 @@ fn format_request_walkthrough(
     repo: &Path,
     evidence: &ExplainEvidence,
 ) -> Result<Vec<String>, String> {
-    let atlas_dir = crate::store::require_atlas_dir(repo)?;
-    let symbols = crate::parse::load_symbols(&atlas_dir)?;
     let query = evidence
         .flow_seed
         .as_deref()
@@ -588,21 +654,30 @@ fn format_request_walkthrough(
         seed: query.to_string(),
         steps,
     };
-    format_flow_walkthrough_with_symbols(&flow, &symbols)
+    format_flow_walkthrough(repo, &flow, false)
 }
 
-fn format_flow_walkthrough(repo: &Path, flow: &flow::FlowResult) -> Result<Vec<String>, String> {
+fn format_flow_walkthrough(repo: &Path, flow: &flow::FlowResult, verbose: bool) -> Result<Vec<String>, String> {
     let atlas_dir = crate::store::require_atlas_dir(repo)?;
     let symbols = crate::parse::load_symbols(&atlas_dir)?;
-    format_flow_walkthrough_with_symbols(flow, &symbols)
+    format_flow_walkthrough_with_symbols(flow, &symbols, verbose)
 }
 
 fn format_flow_walkthrough_with_symbols(
     flow: &flow::FlowResult,
     symbols: &crate::parse::ParseOutput,
+    verbose: bool,
 ) -> Result<Vec<String>, String> {
+    let display_steps = flow::compress_flow_steps(&flow.steps, verbose);
+    let compressed = !verbose && display_steps.len() < flow.steps.len();
+
     let mut lines = vec![
-        "Call-graph walkthrough (approximate — dynamic dispatch may be missing):".to_string(),
+        if compressed {
+            "Call-graph walkthrough (compressed primary path — use `atlas flow --verbose` for full trace):"
+                .to_string()
+        } else {
+            "Call-graph walkthrough (approximate — dynamic dispatch may be missing):".to_string()
+        },
     ];
 
     if let Some(label) = infer_request_label(flow, symbols) {
@@ -610,7 +685,7 @@ fn format_flow_walkthrough_with_symbols(
         lines.push("    ↓".to_string());
     }
 
-    for (index, step) in flow.steps.iter().enumerate() {
+    for (index, step) in display_steps.iter().enumerate() {
         if index > 0 {
             lines.push("    ↓".to_string());
         }

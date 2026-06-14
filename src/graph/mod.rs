@@ -35,10 +35,19 @@ pub fn build_and_store(
 }
 
 pub fn top_files(repo: &Path, limit: usize) -> Result<Vec<RankedFile>, String> {
+    top_files_with_options(repo, limit, false, false)
+}
+
+pub fn top_files_with_options(
+    repo: &Path,
+    limit: usize,
+    include_tests: bool,
+    include_metadata: bool,
+) -> Result<Vec<RankedFile>, String> {
     crate::store::require_atlas_dir(repo)?;
     let db_path = crate::store::require_graph_db(repo)?;
     let connection = db::open(&db_path)?;
-    rank::load_top_files(&connection, limit)
+    rank::load_top_files(&connection, limit, include_tests, include_metadata)
 }
 
 pub fn open_graph(repo: &Path) -> Result<(rusqlite::Connection, std::path::PathBuf), String> {

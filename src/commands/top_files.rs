@@ -5,8 +5,13 @@ use crate::style;
 
 const DEFAULT_LIMIT: usize = 20;
 
-pub fn run(repo: &Path, limit: usize) -> Result<(), String> {
-    let ranked = crate::graph::top_files(repo, limit)?;
+pub fn run(
+    repo: &Path,
+    limit: usize,
+    include_tests: bool,
+    include_metadata: bool,
+) -> Result<(), String> {
+    let ranked = crate::graph::top_files_with_options(repo, limit, include_tests, include_metadata)?;
 
     if ranked.is_empty() {
         return Err(
@@ -27,7 +32,7 @@ pub fn run(repo: &Path, limit: usize) -> Result<(), String> {
         style::emphasis(&repo_name)
     );
     println!();
-    println!("{}", style::heading("Top files"));
+    println!("{}", style::heading("Top code files"));
     println!();
 
     for (index, file) in ranked.iter().enumerate() {
@@ -36,10 +41,14 @@ pub fn run(repo: &Path, limit: usize) -> Result<(), String> {
 
     if ranked.len() == limit {
         println!();
-        println!(
-            "{}",
-            style::muted(&format!("showing top {limit} files — use --limit to change"))
-        );
+        let mut notes = vec![format!("showing top {limit} code files — use --limit to change")];
+        if !include_tests {
+            notes.push("tests excluded (use --include-tests)".to_string());
+        }
+        if !include_metadata {
+            notes.push("docs/config excluded (use --include-metadata)".to_string());
+        }
+        println!("{}", style::muted(&notes.join(" · ")));
     }
 
     crate::commands::report::print_top_files_next(&repo_hint);

@@ -86,9 +86,12 @@ flowchart LR
 | `atlas scan .` | Analyze a repository and write `.atlas/` |
 | `atlas scan . --force` | Delete and rebuild `.atlas/` from scratch |
 | `atlas scan . --list` | Print inventoried file paths (up to 50) |
-| `atlas top-files` | Show importance-ranked files |
+| `atlas top-files` | Show importance-ranked **code files** (tests and docs/config excluded by default) |
+| `atlas top-files --include-tests` | Include test files in the ranked list |
+| `atlas top-files --include-metadata` | Include docs, config, and deployment files |
 | `atlas architecture` | Subsystems, entrypoints, and critical files |
 | `atlas flow <name> [path]` | Trace an execution path (e.g. `atlas flow login`) |
+| `atlas flow <name> --verbose` | Full call graph instead of compressed primary path |
 | `atlas learn <topic> [path]` | Recommended reading order for a subsystem |
 | `atlas explain <topic> [path] [--no-llm]` | Graph-grounded explanation with citations and snippets |
 | `atlas --color explain …` | Force syntax highlighting in snippets |
@@ -248,7 +251,7 @@ atlas/
 
 All build work is tracked in **[ROADMAP.md](ROADMAP.md)** — phases, checkboxes, verify steps, and debugging tips.
 
-**Status:** v1 complete (`scan`, `architecture`, `top-files`, `flow`, `learn`, `explain --no-llm`). v1.1 backlog: behavior tracing, confidence scoring, `impact`, Rust parsing, LLM narration.
+**Status:** v1.0.0 shipped (`scan`, `architecture`, `top-files`, `flow`, `learn`, `explain --no-llm`). v1.1 backlog: behavior tracing, confidence scoring, `impact`, Rust parsing, LLM narration.
 
 ---
 

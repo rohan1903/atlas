@@ -8,9 +8,9 @@ Track progress here. Each phase is small enough to verify in one sitting. **Do n
 
 | Field | Value |
 |-------|-------|
-| **Active phase** | v1 complete — ugly benchmark next |
+| **Active phase** | **v1 shipped** (tag `v1.0.0`) |
 | **Milestone 1** | **Complete** |
-| **v1 feature set** | **Complete** (`--no-llm` explain) |
+| **v1 feature set** | **Shipped** (`scan`, `architecture`, `top-files`, `flow`, `learn`, `explain --no-llm`) |
 | **Last updated** | 2026-06-14 |
 
 ### Progress overview
