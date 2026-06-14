@@ -157,38 +157,111 @@ The number is relative to your repo. A score of 80 on one project doesn't mean t
 
 ## Example output
 
-**Architecture** (skim this before opening random folders):
+`architecture` and `top-files` print plain lists. **`flow`**, **`learn`**, and **`explain`** use stacked box diagrams with `▼` connectors between steps.
+
+**Architecture** (lists, no boxes):
 
 ```text
+Repository: demo_app
+
 Subsystems
-  1. Auth (5 files, score 42, internal links 3)
-     top: auth/routes.py, auth/service.py, auth/repository.py
-  2. Orders (4 files, ...)
+  1. Auth (5 files, score 53, internal links 3)
+     top: auth/service.py, auth/routes.py, auth/token.py
+  2. Orders (4 files, score 35, internal links 2)
+     top: orders/service.py, orders/routes.py, orders/repository.py
 
 Entrypoints
   - main.py
-  - api/router.py
+
+Critical files
+  1.    45  main.py
+  2.    20  auth/service.py
+  3.    17  orders/service.py
 ```
 
-**Flow** (default is compressed; `--verbose` for everything):
+**Flow** (vertical boxes, one function per step):
 
 ```text
 Flow: login
   seed login_handler
 
-  login_handler  →  login  →  get_by_email  →  verify_password  →  create_access_token
+                          ╭──────────────────────────╮
+                          │      login_handler       │
+                          │    auth/routes.py:21     │
+                          ╰─────────────┬────────────╯
+                                        │
+                                        ▼
+                          ╭──────────────────────────╮
+                          │          login           │
+                          │    auth/service.py:16    │
+                          ╰─────────────┬────────────╯
+                                        │
+                                        ▼
+                          ╭──────────────────────────╮
+                          │       get_by_email       │
+                          │  users/repository.py:10  │
+                          ╰─────────────┬────────────╯
+                                        │
+                                       ...
 ```
 
-**Explain** (v1 = templates + real citations, no LLM):
+**Learn** (same box style for read order):
 
 ```text
-Topic: auth
-Citations
-  1. auth/routes.py @ login_handler:21
-  2. auth/service.py @ login:16
-Snippets
-  (syntax-highlighted source from those files)
+Goal: Understand auth
+  subsystem Auth
+
+Read order
+                         ╭────────────────────────────╮
+                         │     1. auth/routes.py      │
+                         │  HTTP routes and handlers  │
+                         ╰──────────────┬─────────────╯
+                                        │
+                                        ▼
+                         ╭────────────────────────────╮
+                         │     2. auth/service.py     │
+                         │    business logic layer    │
+                         ╰──────────────┬─────────────╯
+                                        │
+                                       ...
+
+Estimated time: 25 minutes (rough: 5 min per file)
 ```
+
+**Explain** (reading order in boxes; citations and snippets below):
+
+```text
+Repository: demo_app
+Topic: auth
+
+Overview
+  Matched "auth" → Auth (auth)
+  5 files · 3 direct import link(s) within this folder
+
+  Reading order
+          ╭──────────────────────────────────────────────────────────╮
+          │                    1. auth/routes.py                     │
+          │  HTTP routes and handlers · score 13 · 1 inbound ref(s)  │
+          ╰─────────────────────────────┬────────────────────────────╯
+                                        │
+                                        ▼
+          ╭──────────────────────────────────────────────────────────╮
+          │                    2. auth/service.py                    │
+          │             business logic layer · score 20              │
+          ╰─────────────────────────────┬────────────────────────────╯
+                                        │
+                                       ...
+
+Citations
+  1. auth/routes.py @ login_handler:21 (13 score, 1 inbound, ...)
+  2. auth/service.py @ login:16 (...)
+
+Snippets
+  auth/routes.py (login_handler, lines 21-28)
+  (syntax-highlighted source block follows)
+```
+
+Colors and exact spacing depend on your terminal width. Use `--color` to force highlighting on snippets.
 
 ---
 
