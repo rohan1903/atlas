@@ -19,7 +19,10 @@ fn print_report(report: &ArchitectureReport, repo: &Path) {
 
     println!("{}", style::heading("Subsystems"));
     if report.subsystems.is_empty() {
-        println!("  {}", style::muted("none detected — try scanning a larger repository"));
+        println!(
+            "  {}",
+            style::muted("none detected — try scanning a larger repository")
+        );
     } else {
         for (index, subsystem) in report.subsystems.iter().enumerate() {
             println!(
@@ -28,9 +31,7 @@ fn print_report(report: &ArchitectureReport, repo: &Path) {
                 style::emphasis(&subsystem.name),
                 style::muted(&format!(
                     "({} files, score {:.0}, internal links {})",
-                    subsystem.file_count,
-                    subsystem.total_score,
-                    subsystem.internal_links
+                    subsystem.file_count, subsystem.total_score, subsystem.internal_links
                 ))
             );
             if !subsystem.top_files.is_empty() {
@@ -55,7 +56,10 @@ fn print_report(report: &ArchitectureReport, repo: &Path) {
     println!();
     println!("{}", style::heading("Critical files"));
     if report.critical_files.is_empty() {
-        println!("  {}", style::muted("none ranked yet — run `atlas scan` on source files"));
+        println!(
+            "  {}",
+            style::muted("none ranked yet — run `atlas scan` on source files")
+        );
     } else {
         for (index, file) in report.critical_files.iter().enumerate() {
             println!(
@@ -73,6 +77,6 @@ fn print_report(report: &ArchitectureReport, repo: &Path) {
     println!(
         "  {} {}",
         style::label("top-files:"),
-        style::muted(&format!("cargo run -- top-files {repo_hint}"))
+        style::muted(&format!("atlas top-files {repo_hint}"))
     );
 }

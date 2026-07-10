@@ -37,16 +37,14 @@ pub fn score_value(value: i64) -> String {
 }
 
 pub fn metric_value(name: &str, value: usize) -> String {
-    let styled = match name {
+    match name {
         "files" => value.to_string().green().bold().to_string(),
         "skipped" if value > 0 => value.to_string().yellow().bold().to_string(),
         "skipped" => value.to_string().dimmed().to_string(),
         "errors" if value > 0 => value.to_string().red().bold().to_string(),
         "errors" => value.to_string().green().to_string(),
         _ => value.to_string(),
-    };
-
-    format!("{styled}")
+    }
 }
 
 pub fn skip_verbose(kind: &str, item_path: &str, reason: &str) -> String {
@@ -59,5 +57,9 @@ pub fn skip_verbose(kind: &str, item_path: &str, reason: &str) -> String {
 }
 
 pub fn error_verbose(context: &str, detail: &str) -> String {
-    format!("{} {}", error("error:"), format!("{context} ({detail})").red().to_string())
+    format!(
+        "{} {}",
+        error("error:"),
+        format!("{context} ({detail})").red()
+    )
 }

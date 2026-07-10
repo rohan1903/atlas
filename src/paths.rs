@@ -13,16 +13,24 @@ pub fn is_documentation_file(path: &str) -> bool {
 pub fn is_test_path(path: &str) -> bool {
     let normalized = normalize_path(path);
     if normalized.starts_with("tests/")
+        || normalized.starts_with("test/")
         || normalized.contains("/tests/")
+        || normalized.contains("/test/")
+        || normalized.contains("/__tests__/")
+        || normalized.starts_with("__tests__/")
         || normalized.ends_with("/conftest.py")
     {
         return true;
     }
 
-    normalized
-        .rsplit('/')
-        .next()
-        .is_some_and(|name| name.starts_with("test_"))
+    normalized.rsplit('/').next().is_some_and(|name| {
+        name.starts_with("test_")
+            || name.ends_with("_test.py")
+            || name.ends_with(".test.js")
+            || name.ends_with(".test.ts")
+            || name.ends_with(".spec.js")
+            || name.ends_with(".spec.ts")
+    })
 }
 
 pub fn is_project_metadata_path(path: &str) -> bool {
@@ -30,6 +38,7 @@ pub fn is_project_metadata_path(path: &str) -> bool {
     if normalized.starts_with(".github/")
         || normalized.starts_with("scripts/")
         || normalized.starts_with("docs/")
+        || normalized.starts_with("examples/")
         || normalized.contains("/docs/overrides/")
     {
         return true;
@@ -42,6 +51,12 @@ pub fn is_project_metadata_path(path: &str) -> bool {
                 | "mkdocs.yml"
                 | "citation.cff"
                 | "codecov.yml"
+                | ".editorconfig"
+                | ".eslintignore"
+                | ".gitattributes"
+                | ".npmrc"
+                | ".npmignore"
+                | ".prettierignore"
                 | "license"
                 | "license.md"
                 | "makefile"
@@ -103,7 +118,12 @@ pub fn is_config_or_docs_path(path: &str) -> bool {
 
 pub fn is_test_subsystem_key(key: &str) -> bool {
     let normalized = normalize_path(key);
-    normalized == "tests" || normalized.starts_with("tests/")
+    normalized == "tests"
+        || normalized.starts_with("tests/")
+        || normalized == "test"
+        || normalized.starts_with("test/")
+        || normalized == "__tests__"
+        || normalized.starts_with("__tests__/")
 }
 
 /// Dead-code and migration leftovers — deprioritize in ranking and call resolution.
@@ -124,13 +144,18 @@ mod tests {
     #[test]
     fn detects_test_paths() {
         assert!(is_test_path("tests/test_routing.py"));
+        assert!(is_test_path("test/app.router.js"));
         assert!(is_test_path("tests/middleware/test_cors.py"));
+        assert!(is_test_path("src/routes/user.spec.ts"));
+        assert!(is_test_path("src/__tests__/router.js"));
         assert!(!is_test_path("starlette/routing.py"));
     }
 
     #[test]
     fn detects_metadata_paths() {
         assert!(is_project_metadata_path(".github/workflows/main.yml"));
+        assert!(is_project_metadata_path(".editorconfig"));
+        assert!(is_project_metadata_path("examples/auth/index.js"));
         assert!(is_project_metadata_path("mkdocs.yml"));
         assert!(!is_project_metadata_path("starlette/routing.py"));
     }

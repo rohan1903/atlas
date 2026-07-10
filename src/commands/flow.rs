@@ -7,16 +7,8 @@ pub fn run(repo: &Path, name: &str, verbose: bool) -> Result<(), String> {
     let flow = crate::intelligence::flow::extract_flow(repo, name)?;
     let display_steps = crate::intelligence::flow::compress_flow_steps(&flow.steps, verbose);
 
-    println!(
-        "{} {}",
-        style::label("Flow:"),
-        style::emphasis(&flow.query)
-    );
-    println!(
-        "  {} {}",
-        style::muted("seed"),
-        style::path(&flow.seed)
-    );
+    println!("{} {}", style::label("Flow:"), style::emphasis(&flow.query));
+    println!("  {} {}", style::muted("seed"), style::path(&flow.seed));
     if !verbose && display_steps.len() < flow.steps.len() {
         println!(
             "  {} {}",

@@ -5,18 +5,18 @@ use crate::highlight;
 use crate::intelligence::explain::{self, ExplainEvidence};
 use crate::style;
 
-pub fn run(repo: &Path, topic: &str, no_llm: bool) -> Result<(), String> {
+pub fn run(repo: &Path, topic: &str) -> Result<(), String> {
     let evidence = explain::gather_evidence(repo, topic)?;
 
     if !explain::all_cited_paths_exist_in_graph(repo, &evidence)? {
         return Err("internal error: explain citations must come from the graph".to_string());
     }
 
-    print_template(&evidence, repo, no_llm)?;
+    print_explanation(&evidence, repo)?;
     Ok(())
 }
 
-fn print_template(evidence: &ExplainEvidence, repo: &Path, no_llm: bool) -> Result<(), String> {
+fn print_explanation(evidence: &ExplainEvidence, repo: &Path) -> Result<(), String> {
     println!(
         "{} {}",
         style::label("Repository:"),
@@ -75,7 +75,10 @@ fn print_template(evidence: &ExplainEvidence, repo: &Path, no_llm: bool) -> Resu
     }
 
     if !evidence.execution_flow.is_empty() {
-        println!("{}", style::heading(explain::execution_flow_heading(evidence)));
+        println!(
+            "{}",
+            style::heading(explain::execution_flow_heading(evidence))
+        );
         for line in &evidence.execution_flow {
             println!("  {line}");
         }
@@ -123,10 +126,7 @@ fn print_template(evidence: &ExplainEvidence, repo: &Path, no_llm: bool) -> Resu
             .filter(|citation| citation.snippet.is_some())
         {
             let snippet = citation.snippet.as_ref().expect("snippet checked");
-            let symbol = citation
-                .anchor_symbol
-                .as_deref()
-                .unwrap_or("anchor");
+            let symbol = citation.anchor_symbol.as_deref().unwrap_or("anchor");
             println!(
                 "  {} {} {}",
                 style::path(&citation.path),
@@ -146,10 +146,17 @@ fn print_template(evidence: &ExplainEvidence, repo: &Path, no_llm: bool) -> Resu
 
     println!("{}", style::heading("How execution gets here"));
     if evidence.entrypoints.is_empty() && evidence.wiring_hints.is_empty() {
-        println!("  {}", style::muted("no wiring hints detected — try `atlas architecture`"));
+        println!(
+            "  {}",
+            style::muted("no wiring hints detected — try `atlas architecture`")
+        );
     } else {
         for entrypoint in &evidence.entrypoints {
-            println!("  - {} {}", style::label("entrypoint:"), style::path(entrypoint));
+            println!(
+                "  - {} {}",
+                style::label("entrypoint:"),
+                style::path(entrypoint)
+            );
         }
         for hint in &evidence.wiring_hints {
             println!("  - {}", style::muted(hint));
@@ -162,31 +169,13 @@ fn print_template(evidence: &ExplainEvidence, repo: &Path, no_llm: bool) -> Resu
     println!(
         "  {} {}",
         style::label("learn:"),
-        style::muted(&format!(
-            "atlas learn {} {}",
-            evidence.topic, repo_hint
-        ))
+        style::muted(&format!("atlas learn {} {}", evidence.topic, repo_hint))
     );
     println!(
         "  {} {}",
         style::label("flow:"),
         style::muted(&format!("atlas flow {} {}", evidence.topic, repo_hint))
     );
-
-    println!();
-    if no_llm {
-        println!(
-            "{}",
-            style::muted("Mode: template (--no-llm). LLM narration is not used.")
-        );
-    } else {
-        println!(
-            "{}",
-            style::muted(
-                "Mode: template (LLM not configured yet — use --no-llm to silence this note)."
-            )
-        );
-    }
 
     Ok(())
 }

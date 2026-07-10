@@ -17,6 +17,11 @@ const SKIP_DIR_NAMES: &[&str] = &[
     ".git",
     ".hg",
     ".svn",
+    ".cursor",
+    ".vscode",
+    ".idea",
+    ".codex",
+    ".agents",
     "node_modules",
     "vendor",
     "target",
@@ -40,9 +45,9 @@ const SKIP_DIR_NAMES: &[&str] = &[
 const SKIP_EXTENSIONS: &[&str] = &[
     "exe", "dll", "so", "dylib", "a", "lib", "o", "obj", "pdb", "class", "jar", "war", "ear",
     "zip", "tar", "gz", "bz2", "xz", "7z", "rar", "png", "jpg", "jpeg", "gif", "webp", "ico",
-    "bmp", "svg", "mp3", "mp4", "wav", "avi", "mov", "mkv", "woff", "woff2", "ttf", "eot",
-    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "bin", "dat", "db", "sqlite", "sqlite3",
-    "lock", "min.js", "min.css",
+    "bmp", "svg", "mp3", "mp4", "wav", "avi", "mov", "mkv", "woff", "woff2", "ttf", "eot", "pdf",
+    "doc", "docx", "xls", "xlsx", "ppt", "pptx", "bin", "dat", "db", "sqlite", "sqlite3", "lock",
+    "min.js", "min.css",
 ];
 
 #[derive(Debug, Serialize, Clone)]
@@ -314,7 +319,10 @@ fn walk_repository(root: &Path, verbose: bool) -> Result<ScanStats, String> {
                         if verbose {
                             eprintln!(
                                 "{}",
-                                style::error_verbose(&path.display().to_string(), &error.to_string())
+                                style::error_verbose(
+                                    &path.display().to_string(),
+                                    &error.to_string()
+                                )
                             );
                         }
                     }
@@ -442,7 +450,11 @@ mod tests {
         fs::create_dir_all(root.join("src")).unwrap();
         fs::create_dir_all(root.join("node_modules/pkg")).unwrap();
         fs::write(root.join("src/main.rs"), "fn main() {}").unwrap();
-        fs::write(root.join("node_modules/pkg/index.js"), "module.exports = {}").unwrap();
+        fs::write(
+            root.join("node_modules/pkg/index.js"),
+            "module.exports = {}",
+        )
+        .unwrap();
 
         let stats = walk_repository(&root, false).unwrap();
 

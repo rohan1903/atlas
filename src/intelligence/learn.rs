@@ -59,11 +59,7 @@ pub fn build_learning_path(repo: &Path, topic: &str) -> Result<LearnResult, Stri
     candidates.sort_by(|left, right| {
         learn_priority(&left.file_path)
             .cmp(&learn_priority(&right.file_path))
-            .then_with(|| {
-                right
-                    .is_entrypoint
-                    .cmp(&left.is_entrypoint)
-            })
+            .then_with(|| right.is_entrypoint.cmp(&left.is_entrypoint))
             .then_with(|| {
                 right
                     .score

@@ -11,7 +11,8 @@ pub fn run(
     include_tests: bool,
     include_metadata: bool,
 ) -> Result<(), String> {
-    let ranked = crate::graph::top_files_with_options(repo, limit, include_tests, include_metadata)?;
+    let ranked =
+        crate::graph::top_files_with_options(repo, limit, include_tests, include_metadata)?;
 
     if ranked.is_empty() {
         return Err(
@@ -41,7 +42,9 @@ pub fn run(
 
     if ranked.len() == limit {
         println!();
-        let mut notes = vec![format!("showing top {limit} code files — use --limit to change")];
+        let mut notes = vec![format!(
+            "showing top {limit} code files — use --limit to change"
+        )];
         if !include_tests {
             notes.push("tests excluded (use --include-tests)".to_string());
         }

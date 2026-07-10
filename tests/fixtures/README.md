@@ -46,7 +46,7 @@ Run after flow or ranking changes — catches wrong call resolution and legacy n
 ```powershell
 .\target\release\atlas.exe scan tests/fixtures/ugly_app --force
 .\target\release\atlas.exe flow login tests/fixtures/ugly_app
-.\target\release\atlas.exe explain auth tests/fixtures/ugly_app --no-llm
+.\target\release\atlas.exe explain auth tests/fixtures/ugly_app
 ```
 
 See [`ugly_app/README.md`](ugly_app/README.md) for pass criteria.

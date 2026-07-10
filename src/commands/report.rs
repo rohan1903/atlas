@@ -8,22 +8,22 @@ pub fn print_next_steps(repo_hint: &str) {
     println!(
         "  {} {}",
         style::label("architecture:"),
-        style::muted(&format!("cargo run -- architecture {repo_hint}"))
+        style::muted(&format!("atlas architecture {repo_hint}"))
     );
     println!(
         "  {} {}",
         style::label("top-files:"),
-        style::muted(&format!("cargo run -- top-files {repo_hint}"))
+        style::muted(&format!("atlas top-files {repo_hint}"))
     );
     println!(
         "  {} {}",
         style::label("flow:"),
-        style::muted(&format!("cargo run -- flow <name> {repo_hint}"))
+        style::muted(&format!("atlas flow <name> {repo_hint}"))
     );
     println!(
         "  {} {}",
         style::label("learn:"),
-        style::muted(&format!("cargo run -- learn <topic> {repo_hint}"))
+        style::muted(&format!("atlas learn <topic> {repo_hint}"))
     );
 }
 pub fn print_top_files_next(repo_hint: &str) {
@@ -32,7 +32,7 @@ pub fn print_top_files_next(repo_hint: &str) {
     println!(
         "  {} {}",
         style::label("architecture:"),
-        style::muted(&format!("cargo run -- architecture {repo_hint}"))
+        style::muted(&format!("atlas architecture {repo_hint}"))
     );
 }
 

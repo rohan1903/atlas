@@ -55,21 +55,12 @@ fn color_choice() -> ColorChoice {
     }
 }
 
-pub fn write_snippet_block(
-    path: &str,
-    start_line: usize,
-    lines: &[String],
-) -> io::Result<()> {
+pub fn write_snippet_block(path: &str, start_line: usize, lines: &[String]) -> io::Result<()> {
     let mut stdout = StandardStream::stdout(color_choice());
 
     if !should_color() {
         for (offset, line) in lines.iter().enumerate() {
-            writeln!(
-                stdout,
-                "    {:>4}  {}",
-                start_line + offset,
-                line
-            )?;
+            writeln!(stdout, "    {:>4}  {}", start_line + offset, line)?;
         }
         return Ok(());
     }
@@ -177,6 +168,7 @@ fn syntax_extension_for_path(path: &str) -> Option<&'static str> {
         LanguageKind::JavaScript => "js",
         LanguageKind::Go => "go",
         LanguageKind::C => "c",
+        LanguageKind::Rust => "rs",
     })
 }
 
@@ -217,10 +209,12 @@ mod tests {
 
     #[test]
     fn resolves_python_from_windows_style_path() {
-        assert_eq!(
-            syntax_extension_for_path(r"auth\routes.py"),
-            Some("py")
-        );
+        assert_eq!(syntax_extension_for_path(r"auth\routes.py"), Some("py"));
+    }
+
+    #[test]
+    fn resolves_rust_paths() {
+        assert_eq!(syntax_extension_for_path("src/main.rs"), Some("rs"));
     }
 
     #[test]

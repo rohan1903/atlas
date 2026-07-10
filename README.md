@@ -8,7 +8,7 @@ A map for repos you didn't write. Most onboarding starts by opening random folde
 
 Built for real projects with dozens to thousands of files: too large to skim in one pass, too small to justify weeks of onboarding. Local cache. No account. No cloud.
 
-> **The graph is the product.** Everything else (ranking, flows, explain) reads from that graph. Optional LLM narration in v1.1 must cite it, not invent paths.
+> **The graph is the product.** Everything else (ranking, flows, explain) reads from that graph.
 
 <br/>
 
@@ -106,7 +106,7 @@ New repo, same questions every time:
 - What files matter?
 - If I need to touch *auth* or *check-in*, where does execution start?
 
-Atlas answers from **structure**: scan, parse, graph, rank, trace. No LLM in the loop for v1. `explain --no-llm` pulls real citations and snippets from the graph.
+Atlas answers from **structure**: scan, parse, graph, rank, trace. `explain` pulls real citations and snippets from the graph.
 
 | Atlas **is** | Atlas **is not** |
 |--------------|------------------|
@@ -134,7 +134,7 @@ Atlas builds the graph deterministically:
 - static call paths
 - importance-ranked files
 
-v1 ships graph-grounded templates (`explain --no-llm`). v1.1 adds optional LLM narration **on top of** that evidence. The graph stays the source of truth.
+Atlas ships graph-grounded explanations. The graph stays the source of truth.
 
 ---
 
@@ -192,7 +192,7 @@ cargo run --release -- scan tests/fixtures/demo_app --force
 | `atlas flow <name> [path]` | Compressed execution path (box diagram) |
 | `atlas flow <name> --verbose` | Full call graph |
 | `atlas learn <topic> [path]` | Suggested reading order (box diagram) |
-| `atlas explain <topic> [path] --no-llm` | Overview, walkthrough, citations, snippets |
+| `atlas explain <topic> [path]` | Overview, walkthrough, citations, snippets |
 
 `--color` forces highlighting. `NO_COLOR=1` turns it off.
 
@@ -238,7 +238,7 @@ Flow: login
                                        ...
 ```
 
-**Learn** and **explain** use the same box style for reading order, then citations and syntax-highlighted snippets below. See `atlas learn auth` / `atlas explain auth --no-llm` on [demo_app](tests/fixtures/demo_app).
+**Learn** and **explain** use the same box style for reading order, then citations and syntax-highlighted snippets below. See `atlas learn auth` / `atlas explain auth` on [demo_app](tests/fixtures/demo_app).
 
 ---
 
@@ -255,7 +255,6 @@ flowchart TD
     sub --> arch[architecture]
     rank --> top[top-files]
     flow --> intel[flow · learn · explain]
-    intel --> llm[Optional LLM v1.1]
 ```
 
 1. **Scan:** `.gitignore`, skip `node_modules` and build junk.
@@ -274,8 +273,9 @@ flowchart TD
 | TypeScript / JavaScript | `.ts`, `.tsx`, `.js`, `.jsx` | Works |
 | Go | `.go` | Works |
 | C | `.c`, `.h` | Works (rough on huge/kernel trees) |
+| Rust | `.rs` | Works |
 
-**Next up (v1.1+):** Rust, Java, C#, C++, Kotlin. Unsupported files are skipped; scan summary shows counts. Files over 5 MB are not parsed.
+**Next up (v1.1+):** Java, C#, C++, Kotlin. Unsupported files are skipped; scan summary shows counts. Files over 5 MB are not parsed.
 
 ---
 
@@ -299,9 +299,7 @@ Shipped what works. Known gaps:
 - **Static graph only.** Reflection, dynamic dispatch, framework magic = holes.
 - **Flows name functions**, not user-facing steps like "validate token" (v1.1).
 - **No confidence scores** on guessed vs traced edges yet (v1.1).
-- **`explain` without `--no-llm`** waits on v1.1 Ollama/API wiring.
-
-**v1.1 ideas:** behavior tracing, confidence labels, `atlas impact`, Rust grammar, optional LLM narration.
+**v1.1 ideas:** behavior tracing, confidence labels, `atlas impact`.
 
 ---
 

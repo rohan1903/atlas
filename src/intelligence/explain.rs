@@ -203,9 +203,10 @@ fn gather_from_path_match(
         if paths::is_excluded_from_clustering(&parsed.path) {
             continue;
         }
-        let name_match = parsed.definitions.iter().any(|definition| {
-            definition.name.to_lowercase().contains(&normalized_topic)
-        });
+        let name_match = parsed
+            .definitions
+            .iter()
+            .any(|definition| definition.name.to_lowercase().contains(&normalized_topic));
         if name_match {
             matched_paths.insert(parsed.path.clone());
         }
@@ -298,12 +299,9 @@ fn attach_snippets(repo: &Path, topic: &str, evidence: &mut ExplainEvidence) -> 
             continue;
         };
 
-        if let Some((line, symbol)) = snippets::resolve_anchor(
-            parsed,
-            topic,
-            &citation.role,
-            preferred,
-        ) {
+        if let Some((line, symbol)) =
+            snippets::resolve_anchor(parsed, topic, &citation.role, preferred)
+        {
             citation.anchor_line = Some(line);
             citation.anchor_symbol = Some(symbol);
         }
@@ -445,11 +443,14 @@ fn find_wiring_symbol(symbols: &crate::parse::ParseOutput, name: &str) -> Option
                 if definition.name != name {
                     return None;
                 }
-                Some((wiring_path_score(&parsed.path), WiringSymbol {
-                    name: definition.name.clone(),
-                    path: parsed.path.clone(),
-                    line: definition.line,
-                }))
+                Some((
+                    wiring_path_score(&parsed.path),
+                    WiringSymbol {
+                        name: definition.name.clone(),
+                        path: parsed.path.clone(),
+                        line: definition.line,
+                    },
+                ))
             })
         })
         .max_by_key(|(score, _)| *score)
@@ -475,9 +476,10 @@ fn wiring_path_score(path: &str) -> i32 {
 fn is_middleware_area(evidence: &ExplainEvidence) -> bool {
     evidence.subsystem_key.contains("middleware")
         || evidence.topic.to_lowercase().contains("middleware")
-        || evidence.citations.iter().any(|citation| {
-            citation.path.to_lowercase().contains("middleware")
-        })
+        || evidence
+            .citations
+            .iter()
+            .any(|citation| citation.path.to_lowercase().contains("middleware"))
 }
 
 fn build_execution_flow(repo: &Path, evidence: &ExplainEvidence) -> Result<Vec<String>, String> {
@@ -490,9 +492,12 @@ fn build_execution_flow(repo: &Path, evidence: &ExplainEvidence) -> Result<Vec<S
     }
 }
 
-fn build_request_walkthrough(repo: &Path, evidence: &ExplainEvidence) -> Result<Vec<String>, String> {
+fn build_request_walkthrough(
+    repo: &Path,
+    evidence: &ExplainEvidence,
+) -> Result<Vec<String>, String> {
     if evidence.match_kind == ExplainMatchKind::Flow {
-        return Ok(format_request_walkthrough(repo, evidence)?);
+        return format_request_walkthrough(repo, evidence);
     }
 
     if evidence.match_kind != ExplainMatchKind::Subsystem || is_middleware_area(evidence) {
@@ -514,7 +519,10 @@ fn build_request_walkthrough(repo: &Path, evidence: &ExplainEvidence) -> Result<
         if score <= 0 {
             continue;
         }
-        if best.as_ref().is_none_or(|(_, best_score)| score > *best_score) {
+        if best
+            .as_ref()
+            .is_none_or(|(_, best_score)| score > *best_score)
+        {
             best = Some((flow, score));
         }
     }
@@ -627,10 +635,7 @@ fn format_request_walkthrough(
     repo: &Path,
     evidence: &ExplainEvidence,
 ) -> Result<Vec<String>, String> {
-    let query = evidence
-        .flow_seed
-        .as_deref()
-        .unwrap_or(&evidence.topic);
+    let query = evidence.flow_seed.as_deref().unwrap_or(&evidence.topic);
 
     let steps: Vec<flow::FlowStep> = evidence
         .citations
@@ -657,7 +662,11 @@ fn format_request_walkthrough(
     format_flow_walkthrough(repo, &flow, false)
 }
 
-fn format_flow_walkthrough(repo: &Path, flow: &flow::FlowResult, verbose: bool) -> Result<Vec<String>, String> {
+fn format_flow_walkthrough(
+    repo: &Path,
+    flow: &flow::FlowResult,
+    verbose: bool,
+) -> Result<Vec<String>, String> {
     let atlas_dir = crate::store::require_atlas_dir(repo)?;
     let symbols = crate::parse::load_symbols(&atlas_dir)?;
     format_flow_walkthrough_with_symbols(flow, &symbols, verbose)
@@ -671,14 +680,12 @@ fn format_flow_walkthrough_with_symbols(
     let display_steps = flow::compress_flow_steps(&flow.steps, verbose);
     let compressed = !verbose && display_steps.len() < flow.steps.len();
 
-    let mut lines = vec![
-        if compressed {
-            "Call-graph walkthrough (compressed primary path — use `atlas flow --verbose` for full trace):"
+    let mut lines = vec![if compressed {
+        "Call-graph walkthrough (compressed primary path — use `atlas flow --verbose` for full trace):"
                 .to_string()
-        } else {
-            "Call-graph walkthrough (approximate — dynamic dispatch may be missing):".to_string()
-        },
-    ];
+    } else {
+        "Call-graph walkthrough (approximate — dynamic dispatch may be missing):".to_string()
+    }];
 
     if let Some(label) = infer_request_label(flow, symbols) {
         lines.push(format!("  {label}"));
@@ -697,7 +704,10 @@ fn format_flow_walkthrough_with_symbols(
     Ok(lines)
 }
 
-fn infer_request_label(flow: &flow::FlowResult, symbols: &crate::parse::ParseOutput) -> Option<String> {
+fn infer_request_label(
+    flow: &flow::FlowResult,
+    symbols: &crate::parse::ParseOutput,
+) -> Option<String> {
     let first = flow.steps.first()?;
     let parsed = symbols.files.iter().find(|file| file.path == first.file)?;
 
@@ -717,7 +727,9 @@ fn infer_request_label(flow: &flow::FlowResult, symbols: &crate::parse::ParseOut
     parsed
         .definitions
         .iter()
-        .find(|definition| definition.kind == "route" && route_matches_query(&definition.name, &flow.query))
+        .find(|definition| {
+            definition.kind == "route" && route_matches_query(&definition.name, &flow.query)
+        })
         .map(|route| format_http_route(&flow.query, &route.name))
 }
 
@@ -744,7 +756,10 @@ fn format_http_route(query: &str, route_path: &str) -> String {
 }
 
 fn normalize_route_path(route_name: &str) -> String {
-    if let Some(path) = route_name.split_whitespace().find(|part| part.starts_with('/')) {
+    if let Some(path) = route_name
+        .split_whitespace()
+        .find(|part| part.starts_with('/'))
+    {
         return path.to_string();
     }
     if route_name.starts_with('/') {
@@ -789,9 +804,7 @@ fn middleware_execution_lines(
     }
 
     lines.push("  Router → endpoint handler".to_string());
-    lines.push(
-        "  Layers above are ranked by graph importance, not install order.".to_string(),
-    );
+    lines.push("  Layers above are ranked by graph importance, not install order.".to_string());
     Ok(lines)
 }
 
@@ -807,9 +820,11 @@ fn reading_order_flow(evidence: &ExplainEvidence) -> Vec<String> {
 }
 
 fn primary_class_name(parsed: &crate::parse::ParsedFile) -> Option<String> {
-    if let Some(definition) = parsed.definitions.iter().find(|definition| {
-        definition.kind == "class" && definition.name.ends_with("Middleware")
-    }) {
+    if let Some(definition) = parsed
+        .definitions
+        .iter()
+        .find(|definition| definition.kind == "class" && definition.name.ends_with("Middleware"))
+    {
         return Some(definition.name.clone());
     }
 
@@ -865,10 +880,7 @@ fn build_purpose(repo: &Path, evidence: &ExplainEvidence) -> Result<Vec<String>,
     }
 
     if evidence.match_kind == ExplainMatchKind::Flow {
-        let seed = evidence
-            .flow_seed
-            .as_deref()
-            .unwrap_or(&evidence.topic);
+        let seed = evidence.flow_seed.as_deref().unwrap_or(&evidence.topic);
         return Ok(vec![
             format!(
                 "This topic traces a call-graph path starting at \"{seed}\".",
@@ -914,10 +926,8 @@ fn detect_middleware_responsibilities(
     citations: &[ExplainCitation],
     files: &[crate::parse::ParsedFile],
 ) -> Vec<String> {
-    let parsed_by_path: HashMap<String, &crate::parse::ParsedFile> = files
-        .iter()
-        .map(|file| (file.path.clone(), file))
-        .collect();
+    let parsed_by_path: HashMap<String, &crate::parse::ParsedFile> =
+        files.iter().map(|file| (file.path.clone(), file)).collect();
 
     let mut responsibilities = Vec::new();
 
@@ -1006,10 +1016,7 @@ fn subsystem_overview(evidence: &ExplainEvidence) -> ExplainOverview {
 }
 
 fn flow_overview(evidence: &ExplainEvidence) -> Vec<String> {
-    let seed = evidence
-        .flow_seed
-        .as_deref()
-        .unwrap_or(&evidence.topic);
+    let seed = evidence.flow_seed.as_deref().unwrap_or(&evidence.topic);
 
     let mut paragraphs = vec![format!(
         "Atlas resolved \"{}\" as a call-graph flow starting at seed \"{}\" in the {} area.",
@@ -1017,21 +1024,28 @@ fn flow_overview(evidence: &ExplainEvidence) -> Vec<String> {
     )];
 
     if let Some(first) = evidence.citations.first() {
-        paragraphs.push(format!(
-            "The trace begins in {} at {} and continues through {} downstream file(s).",
-            first.path,
-            first
-                .anchor_symbol
-                .as_deref()
-                .unwrap_or("the matched symbol"),
-            evidence.citations.len().saturating_sub(1)
-        ));
+        let anchor = first
+            .anchor_symbol
+            .as_deref()
+            .unwrap_or("the matched symbol");
+        let downstream = evidence.citations.len().saturating_sub(1);
+        if downstream == 0 {
+            paragraphs.push(format!(
+                "Atlas found the matching seed in {} at {}, but did not resolve a reliable downstream file transition.",
+                first.path, anchor
+            ));
+        } else {
+            paragraphs.push(format!(
+                "The trace begins in {} at {} and continues through {} downstream file(s).",
+                first.path, anchor, downstream
+            ));
+        }
     }
 
     let chain: Vec<String> = evidence
         .citations
         .iter()
-        .filter_map(|citation| citation.anchor_symbol.as_ref().map(|symbol| symbol.clone()))
+        .filter_map(|citation| citation.anchor_symbol.clone())
         .collect();
     if chain.len() > 1 {
         paragraphs.push(format!("Call chain: {}.", chain.join(" → ")));
@@ -1061,12 +1075,13 @@ fn path_overview(evidence: &ExplainEvidence) -> Vec<String> {
     ]
 }
 
-pub fn all_cited_paths_exist_in_graph(repo: &Path, evidence: &ExplainEvidence) -> Result<bool, String> {
-    let ranked = crate::graph::top_files(repo, usize::MAX)?;
-    let known: std::collections::HashSet<&str> = ranked
-        .iter()
-        .map(|file| file.file_path.as_str())
-        .collect();
+pub fn all_cited_paths_exist_in_graph(
+    repo: &Path,
+    evidence: &ExplainEvidence,
+) -> Result<bool, String> {
+    let ranked = crate::graph::top_files_with_options(repo, usize::MAX, true, true)?;
+    let known: std::collections::HashSet<&str> =
+        ranked.iter().map(|file| file.file_path.as_str()).collect();
 
     Ok(evidence
         .citations
@@ -1238,12 +1253,44 @@ mod tests {
         evidence.internal_links = 0;
         let overview = build_overview(&evidence);
         assert!(overview.summary_lines[1].contains("no direct imports within this folder"));
-        assert!(
-            overview
-                .summary_lines
-                .iter()
-                .any(|line| line.contains("runtime wiring"))
-        );
+        assert!(overview
+            .summary_lines
+            .iter()
+            .any(|line| line.contains("runtime wiring")));
+    }
+
+    #[test]
+    fn flow_overview_handles_single_file_trace() {
+        let evidence = ExplainEvidence {
+            match_kind: ExplainMatchKind::Flow,
+            flow_seed: Some("app".to_string()),
+            citations: vec![ExplainCitation {
+                path: "fastapi/routing.py".to_string(),
+                role: "flow step: app".to_string(),
+                score: 447.0,
+                inbound_refs: 14,
+                anchor_line: Some(119),
+                anchor_symbol: Some("app".to_string()),
+                snippet: None,
+            }],
+            topic: "routing".to_string(),
+            repository_name: "fastapi".to_string(),
+            subsystem_name: "Fastapi".to_string(),
+            subsystem_key: "fastapi".to_string(),
+            file_count: 1,
+            internal_links: 0,
+            entrypoints: Vec::new(),
+            wiring_hints: Vec::new(),
+            execution_flow: Vec::new(),
+            purpose: Vec::new(),
+            request_walkthrough: Vec::new(),
+        };
+
+        let paragraphs = flow_overview(&evidence);
+        assert!(paragraphs
+            .iter()
+            .any(|line| line.contains("did not resolve a reliable downstream")));
+        assert!(!paragraphs.iter().any(|line| line.contains("0 downstream")));
     }
 
     #[test]
@@ -1259,7 +1306,11 @@ mod tests {
 
     #[test]
     fn excluded_paths_are_not_clustered() {
-        assert!(crate::paths::is_excluded_from_clustering("tests/test_auth.py"));
-        assert!(!crate::paths::is_excluded_from_clustering("auth/service.py"));
+        assert!(crate::paths::is_excluded_from_clustering(
+            "tests/test_auth.py"
+        ));
+        assert!(!crate::paths::is_excluded_from_clustering(
+            "auth/service.py"
+        ));
     }
 }

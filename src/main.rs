@@ -96,7 +96,7 @@ enum Commands {
         #[arg(default_value = ".")]
         path: PathBuf,
     },
-    /// Explain a topic from graph evidence (template or LLM)
+    /// Explain a topic from graph evidence
     Explain {
         /// Subsystem or topic name (e.g. auth, orders)
         topic: String,
@@ -104,10 +104,6 @@ enum Commands {
         /// Repository that was previously scanned
         #[arg(default_value = ".")]
         path: PathBuf,
-
-        /// Use deterministic template output instead of an LLM
-        #[arg(long)]
-        no_llm: bool,
     },
 }
 
@@ -140,9 +136,7 @@ fn main() {
         } => {
             let repo = store::resolve_repo(&path);
             match repo {
-                Ok(repo) => {
-                    commands::top_files::run(&repo, limit, include_tests, include_metadata)
-                }
+                Ok(repo) => commands::top_files::run(&repo, limit, include_tests, include_metadata),
                 Err(error) => Err(error),
             }
         }
@@ -164,14 +158,10 @@ fn main() {
                 Err(error) => Err(error),
             }
         }
-        Commands::Explain {
-            path,
-            topic,
-            no_llm,
-        } => {
+        Commands::Explain { path, topic } => {
             let repo = store::resolve_repo(&path);
             match repo {
-                Ok(repo) => commands::explain::run(&repo, &topic, no_llm),
+                Ok(repo) => commands::explain::run(&repo, &topic),
                 Err(error) => Err(error),
             }
         }

@@ -20,5 +20,6 @@ Thumbs.db
 # Local planning notes (not published)
 ROADMAP.md
 
-# Cloned benchmark repos (run tests/benchmarks/README.md to fetch)
-/tests/benchmarks/starlette/
+# Benchmark clones and generated reports (see tests/benchmarks/README.md)
+/tests/benchmarks/repos/
+/tests/benchmarks/reports/

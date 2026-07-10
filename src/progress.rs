@@ -15,7 +15,7 @@ pub fn file_tick(count: usize, label: &str, verbose: bool) {
     if verbose {
         return;
     }
-    if count == 1 || count % FILE_PROGRESS_INTERVAL == 0 {
+    if count == 1 || count.is_multiple_of(FILE_PROGRESS_INTERVAL) {
         eprintln!(
             "  {} {} {}...",
             style::muted(label),
@@ -29,7 +29,7 @@ pub fn parse_tick(count: usize, verbose: bool) {
     if verbose {
         return;
     }
-    if count == 1 || count % PARSE_PROGRESS_INTERVAL == 0 {
+    if count == 1 || count.is_multiple_of(PARSE_PROGRESS_INTERVAL) {
         eprintln!(
             "  {} {} {}...",
             style::muted("parsed"),

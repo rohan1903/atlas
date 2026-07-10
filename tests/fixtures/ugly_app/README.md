@@ -23,7 +23,7 @@ Wired from `main.py` → `api/router.py` → `auth/routes.py` → `auth/service.
 .\target\release\atlas.exe top-files tests/fixtures/ugly_app
 .\target\release\atlas.exe flow login tests/fixtures/ugly_app
 .\target\release\atlas.exe learn auth tests/fixtures/ugly_app
-.\target\release\atlas.exe explain auth tests/fixtures/ugly_app --no-llm
+.\target\release\atlas.exe explain auth tests/fixtures/ugly_app
 ```
 
 ## Pass criteria

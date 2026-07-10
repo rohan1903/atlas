@@ -9,8 +9,21 @@ use crate::scan::InventoryFile;
 use super::db;
 
 const ENTRYPOINT_FILENAMES: &[&str] = &[
-    "main.py", "app.py", "wsgi.py", "manage.py", "main.go", "index.ts", "index.js", "main.ts",
-    "server.ts", "app.ts", "main.c", "init.c", "mod.rs", "lib.rs", "main.rs",
+    "main.py",
+    "app.py",
+    "wsgi.py",
+    "manage.py",
+    "main.go",
+    "index.ts",
+    "index.js",
+    "main.ts",
+    "server.ts",
+    "app.ts",
+    "main.c",
+    "init.c",
+    "mod.rs",
+    "lib.rs",
+    "main.rs",
 ];
 
 pub struct FileIndex {
@@ -60,7 +73,8 @@ impl FileIndex {
             }
         }
 
-        if normalized.ends_with(".py") || normalized.ends_with(".go") {
+        if normalized.ends_with(".py") || normalized.ends_with(".go") || normalized.ends_with(".rs")
+        {
             return self.try_candidates(&normalized);
         }
 
@@ -85,6 +99,22 @@ impl FileIndex {
             format!("{normalized}/index.js"),
         ];
         for candidate in js_variants {
+            if let Some(path) = self.try_candidates(&candidate) {
+                return Some(path);
+            }
+        }
+
+        let rust_path = normalized
+            .trim_start_matches("crate::")
+            .trim_start_matches("self::")
+            .replace("::", "/");
+        let rust_variants = [
+            format!("{rust_path}.rs"),
+            format!("{rust_path}/mod.rs"),
+            format!("src/{rust_path}.rs"),
+            format!("src/{rust_path}/mod.rs"),
+        ];
+        for candidate in rust_variants {
             if let Some(path) = self.try_candidates(&candidate) {
                 return Some(path);
             }
@@ -176,7 +206,11 @@ pub fn build_graph(
                 Some(definition.line),
             )?;
             symbol_node_ids.insert(
-                (parsed.path.clone(), definition.name.clone(), definition.line),
+                (
+                    parsed.path.clone(),
+                    definition.name.clone(),
+                    definition.line,
+                ),
                 symbol_id,
             );
             db::insert_edge(connection, file_id, symbol_id, "DEFINES")?;
@@ -206,9 +240,10 @@ pub fn build_graph(
     }
 
     for (target_file, source_file) in import_targets {
-        if let (Some(&target_id), Some(&source_id)) =
-            (file_node_ids.get(&target_file), file_node_ids.get(&source_file))
-        {
+        if let (Some(&target_id), Some(&source_id)) = (
+            file_node_ids.get(&target_file),
+            file_node_ids.get(&source_file),
+        ) {
             if target_id != source_id {
                 db::insert_edge(connection, source_id, target_id, "IMPORTS")?;
             }
@@ -251,6 +286,33 @@ mod tests {
     #[test]
     fn detects_entrypoint_main_c() {
         assert!(is_entrypoint("init/main.c"));
+    }
+
+    #[test]
+    fn resolves_rust_modules() {
+        let files = vec![
+            InventoryFile {
+                path: "src/main.rs".to_string(),
+                size_bytes: 1,
+            },
+            InventoryFile {
+                path: "src/graph/mod.rs".to_string(),
+                size_bytes: 1,
+            },
+            InventoryFile {
+                path: "src/graph/rank.rs".to_string(),
+                size_bytes: 1,
+            },
+        ];
+        let index = FileIndex::from_inventory(&files);
+        assert_eq!(
+            index.resolve_import("src/main.rs", "crate::graph"),
+            Some("src/graph/mod.rs".to_string())
+        );
+        assert_eq!(
+            index.resolve_import("src/graph/mod.rs", "rank"),
+            Some("src/graph/rank.rs".to_string())
+        );
     }
 
     #[test]

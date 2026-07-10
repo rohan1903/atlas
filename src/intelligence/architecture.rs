@@ -70,13 +70,15 @@ fn detect_subsystems(ranked: &[RankedFile], import_edges: &[(String, String)]) -
         }
 
         let key = subsystem_key(&file.file_path);
-        let entry = clusters.entry(key.clone()).or_insert_with(|| SubsystemAccumulator {
-            key: key.clone(),
-            name: display_subsystem_name(&key),
-            file_count: 0,
-            total_score: 0.0,
-            files: Vec::new(),
-        });
+        let entry = clusters
+            .entry(key.clone())
+            .or_insert_with(|| SubsystemAccumulator {
+                key: key.clone(),
+                name: display_subsystem_name(&key),
+                file_count: 0,
+                total_score: 0.0,
+                files: Vec::new(),
+            });
         entry.file_count += 1;
         entry.total_score += file.score;
         entry.files.push((file.file_path.clone(), file.score));
@@ -118,11 +120,7 @@ fn detect_subsystems(ranked: &[RankedFile], import_edges: &[(String, String)]) -
                 file_count: cluster.file_count,
                 total_score: cluster.total_score,
                 internal_links: *internal_links.get(&cluster.key).unwrap_or(&0),
-                top_files: files
-                    .into_iter()
-                    .take(3)
-                    .map(|(path, _)| path)
-                    .collect(),
+                top_files: files.into_iter().take(3).map(|(path, _)| path).collect(),
             }
         })
         .filter(|subsystem| subsystem.file_count > 0)
@@ -190,7 +188,9 @@ fn load_import_edges(connection: &Connection) -> Result<Vec<(String, String)>, S
         .map_err(|error| format!("could not query import edges: {error}"))?;
 
     let rows = statement
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
         .map_err(|error| format!("could not read import edges: {error}"))?;
 
     rows.collect::<Result<Vec<_>, _>>()
@@ -199,7 +199,10 @@ fn load_import_edges(connection: &Connection) -> Result<Vec<(String, String)>, S
 
 pub fn subsystem_key(path: &str) -> String {
     let normalized = path.replace('\\', "/");
-    let parts: Vec<&str> = normalized.split('/').filter(|part| !part.is_empty()).collect();
+    let parts: Vec<&str> = normalized
+        .split('/')
+        .filter(|part| !part.is_empty())
+        .collect();
 
     match parts.len() {
         0 => "(root)".to_string(),

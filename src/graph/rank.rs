@@ -37,9 +37,8 @@ pub fn rank_files(
         let definition_count = *definitions.get(path).unwrap_or(&0);
         let entrypoint = is_entrypoint(path);
 
-        let mut score = inbound_refs as f64 * 3.0
-            + outbound_refs as f64 * 0.5
-            + definition_count as f64 * 0.3;
+        let mut score =
+            inbound_refs as f64 * 3.0 + outbound_refs as f64 * 0.5 + definition_count as f64 * 0.3;
 
         if entrypoint {
             score += 40.0;
@@ -154,11 +153,14 @@ fn inbound_import_counts(connection: &Connection) -> Result<HashMap<String, usiz
 
     let mut counts = HashMap::new();
     let rows = statement
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize)))
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
+        })
         .map_err(|error| format!("could not read inbound refs: {error}"))?;
 
     for row in rows {
-        let (path, count) = row.map_err(|error| format!("could not collect inbound refs: {error}"))?;
+        let (path, count) =
+            row.map_err(|error| format!("could not collect inbound refs: {error}"))?;
         counts.insert(path, count);
     }
 
@@ -179,11 +181,14 @@ fn outbound_activity_counts(connection: &Connection) -> Result<HashMap<String, u
 
     let mut counts = HashMap::new();
     let rows = statement
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize)))
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
+        })
         .map_err(|error| format!("could not read outbound refs: {error}"))?;
 
     for row in rows {
-        let (path, count) = row.map_err(|error| format!("could not collect outbound refs: {error}"))?;
+        let (path, count) =
+            row.map_err(|error| format!("could not collect outbound refs: {error}"))?;
         counts.insert(path, count);
     }
 
@@ -315,14 +320,19 @@ mod tests {
         build_graph(&connection, &inventory, &parsed).expect("build graph");
         rank_files(&connection, &inventory, &parsed).expect("rank files");
 
-        let production = load_top_files(&connection, 10, false, false).expect("production top files");
-        assert!(production.iter().all(|file| !paths::is_test_path(&file.file_path)));
+        let production =
+            load_top_files(&connection, 10, false, false).expect("production top files");
+        assert!(production
+            .iter()
+            .all(|file| !paths::is_test_path(&file.file_path)));
         assert!(production
             .iter()
             .all(|file| !paths::is_config_or_docs_path(&file.file_path)));
         assert_eq!(production[0].file_path, "app.py");
 
         let with_tests = load_top_files(&connection, 10, true, false).expect("with tests");
-        assert!(with_tests.iter().any(|file| file.file_path == "tests/test_app.py"));
+        assert!(with_tests
+            .iter()
+            .any(|file| file.file_path == "tests/test_app.py"));
     }
 }

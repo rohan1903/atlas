@@ -9,6 +9,7 @@ pub enum LanguageKind {
     JavaScript,
     Go,
     C,
+    Rust,
 }
 
 impl LanguageKind {
@@ -23,6 +24,7 @@ impl LanguageKind {
             "js" | "mjs" | "cjs" | "jsx" => Some(Self::JavaScript),
             "go" => Some(Self::Go),
             "c" | "h" => Some(Self::C),
+            "rs" => Some(Self::Rust),
             _ if file == "makefile" => None,
             _ => None,
         }
@@ -41,6 +43,7 @@ impl LanguageKind {
             Self::JavaScript => tree_sitter_javascript::LANGUAGE.into(),
             Self::Go => tree_sitter_go::LANGUAGE.into(),
             Self::C => tree_sitter_c::LANGUAGE.into(),
+            Self::Rust => tree_sitter_rust::LANGUAGE.into(),
         }
     }
 
@@ -51,6 +54,7 @@ impl LanguageKind {
             Self::JavaScript => "javascript",
             Self::Go => "go",
             Self::C => "c",
+            Self::Rust => "rust",
         }
     }
 }
@@ -62,8 +66,26 @@ mod tests {
 
     #[test]
     fn detects_c_and_header_files() {
-        assert_eq!(LanguageKind::from_path(Path::new("kernel/sched.c")), Some(LanguageKind::C));
-        assert_eq!(LanguageKind::from_path(Path::new("include/linux/mm.h")), Some(LanguageKind::C));
+        assert_eq!(
+            LanguageKind::from_path(Path::new("kernel/sched.c")),
+            Some(LanguageKind::C)
+        );
+        assert_eq!(
+            LanguageKind::from_path(Path::new("include/linux/mm.h")),
+            Some(LanguageKind::C)
+        );
+    }
+
+    #[test]
+    fn detects_rust_files() {
+        assert_eq!(
+            LanguageKind::from_path(Path::new("src/main.rs")),
+            Some(LanguageKind::Rust)
+        );
+        assert_eq!(
+            LanguageKind::from_path(Path::new("src/lib.rs")),
+            Some(LanguageKind::Rust)
+        );
     }
 
     #[test]

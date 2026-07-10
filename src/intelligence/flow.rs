@@ -56,7 +56,7 @@ pub fn extract_flow(repo: &Path, query: &str) -> Result<FlowResult, String> {
         ));
     }
 
-    seeds.sort_by(|left, right| right.score.cmp(&left.score));
+    seeds.sort_by_key(|seed| std::cmp::Reverse(seed.score));
 
     let mut best: Option<(Seed, Vec<FlowStep>)> = None;
     for seed in seeds {
@@ -398,14 +398,12 @@ impl DefinitionIndex {
         None
     }
 
-    fn pick_candidate(
-        &self,
-        key: &str,
-        caller: Option<&ParsedFile>,
-    ) -> Option<DefinitionRecord> {
+    fn pick_candidate(&self, key: &str, caller: Option<&ParsedFile>) -> Option<DefinitionRecord> {
         let candidates = self.by_name.get(key)?;
         let caller_file = caller.map(|parsed| parsed.path.as_str());
-        let caller_imports = caller.map(|parsed| parsed.imports.as_slice()).unwrap_or(&[]);
+        let caller_imports = caller
+            .map(|parsed| parsed.imports.as_slice())
+            .unwrap_or(&[]);
 
         if let Some(file) = caller_file {
             if let Some(local) = candidates
@@ -417,10 +415,12 @@ impl DefinitionIndex {
             }
         }
 
-        candidates
+        let best = candidates
             .iter()
             .max_by_key(|record| score_call_candidate(record, caller_file, caller_imports))
-            .cloned()
+            .cloned();
+
+        best.filter(|record| score_call_candidate(record, caller_file, caller_imports) > -5_000)
     }
 }
 
@@ -434,6 +434,10 @@ fn score_call_candidate(
     if let Some(caller) = caller_file {
         if subsystem_key(&record.file) == subsystem_key(caller) {
             score += 200;
+        }
+
+        if !paths::is_test_path(caller) && paths::is_test_path(&record.file) {
+            score -= 10_000;
         }
     }
 
@@ -884,6 +888,51 @@ mod tests {
     }
 
     #[test]
+    fn production_flow_does_not_resolve_into_tests() {
+        let symbols = ParseOutput {
+            version: 1,
+            summary: ParseSummary::default(),
+            files: vec![
+                ParsedFile {
+                    path: "fastapi/routing.py".to_string(),
+                    language: "python".to_string(),
+                    definitions: vec![Definition {
+                        kind: "function".to_string(),
+                        name: "app".to_string(),
+                        line: 10,
+                    }],
+                    imports: vec![],
+                    calls: vec![Call {
+                        target: "f".to_string(),
+                        line: 11,
+                    }],
+                },
+                ParsedFile {
+                    path: "tests/test_routing.py".to_string(),
+                    language: "python".to_string(),
+                    definitions: vec![Definition {
+                        kind: "function".to_string(),
+                        name: "f".to_string(),
+                        line: 3,
+                    }],
+                    imports: vec![],
+                    calls: vec![],
+                },
+            ],
+        };
+
+        let index = DefinitionIndex::from_symbols(&symbols);
+        let seed = Seed {
+            file: "fastapi/routing.py".to_string(),
+            definition: symbols.files[0].definitions[0].clone(),
+            score: 100,
+        };
+        let steps = trace_flow(&seed, &symbols, &index);
+        assert_eq!(steps.len(), 1);
+        assert!(!steps.iter().any(|step| paths::is_test_path(&step.file)));
+    }
+
+    #[test]
     fn compresses_noisy_checkin_chain() {
         let steps = vec![
             FlowStep {
@@ -939,7 +988,9 @@ mod tests {
             compressed.first().map(|step| step.label.as_str()),
             Some("checkin_verify_and_log")
         );
-        assert!(compressed.iter().any(|step| step.label == "process_checkin"));
+        assert!(compressed
+            .iter()
+            .any(|step| step.label == "process_checkin"));
         assert_eq!(compress_flow_steps(&steps, true).len(), steps.len());
     }
 

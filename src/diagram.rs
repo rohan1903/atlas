@@ -63,12 +63,7 @@ fn print_border_bottom_closed(indent: &str, inner_width: usize) {
 fn print_border_bottom_tee(indent: &str, inner_width: usize) {
     let left = inner_width / 2;
     let right = inner_width.saturating_sub(left).saturating_sub(1);
-    let border = format!(
-        "╰{}{}{}╯",
-        "─".repeat(left),
-        "┬",
-        "─".repeat(right)
-    );
+    let border = format!("╰{}{}{}╯", "─".repeat(left), "┬", "─".repeat(right));
     println!("{}{}", indent, style::muted(&border));
 }
 
@@ -89,10 +84,7 @@ fn inner_width_for_lines(lines: &[BoxLine]) -> usize {
 }
 
 fn diagram_indent(box_outer_width: usize) -> String {
-    let margin = TERMINAL_WIDTH
-        .saturating_sub(box_outer_width)
-        .max(4)
-        / 2;
+    let margin = TERMINAL_WIDTH.saturating_sub(box_outer_width).max(4) / 2;
     " ".repeat(margin)
 }
 

@@ -96,26 +96,27 @@ pub fn resolve_anchor(
         .map(|definition| (definition.line, definition.name.clone()))
 }
 
-fn pick_best_topic_anchor(
-    parsed: &ParsedFile,
-    topic: &str,
-    role: &str,
-) -> Option<(usize, String)> {
+fn pick_best_topic_anchor(parsed: &ParsedFile, topic: &str, role: &str) -> Option<(usize, String)> {
     let topic_lower = topic.trim().to_lowercase();
     if topic_lower.is_empty() {
         return None;
     }
 
     let mut best: Option<(i32, usize, String)> = None;
-    for definition in parsed.definitions.iter().filter(|definition| {
-        matches!(definition.kind.as_str(), "function" | "method")
-    }) {
+    for definition in parsed
+        .definitions
+        .iter()
+        .filter(|definition| matches!(definition.kind.as_str(), "function" | "method"))
+    {
         let score = score_anchor_candidate(parsed, definition, &topic_lower, role);
         if score <= 0 {
             continue;
         }
         let candidate = (score, definition.line, definition.name.clone());
-        if best.as_ref().is_none_or(|(best_score, _, _)| candidate.0 > *best_score) {
+        if best
+            .as_ref()
+            .is_none_or(|(best_score, _, _)| candidate.0 > *best_score)
+        {
             best = Some(candidate);
         }
     }
@@ -171,7 +172,9 @@ fn score_anchor_candidate(
     }
 
     let role_lower = role.to_lowercase();
-    if (role_lower.contains("entrypoint") || role_lower.contains("http") || role_lower.contains("route"))
+    if (role_lower.contains("entrypoint")
+        || role_lower.contains("http")
+        || role_lower.contains("route"))
         && (name.contains("register")
             || name.contains("verify")
             || name.contains("login")
@@ -249,7 +252,9 @@ fn pick_method_after_line(parsed: &ParsedFile, class_line: usize) -> Option<(usi
         .collect();
 
     for method_name in ENTRY_METHODS {
-        if let Some(definition) = candidates.iter().find(|definition| definition.name == *method_name)
+        if let Some(definition) = candidates
+            .iter()
+            .find(|definition| definition.name == *method_name)
         {
             return Some((definition.line, definition.name.clone()));
         }
@@ -268,8 +273,7 @@ fn extract_definition_block(lines: &[&str], start_line: usize) -> Result<FileSni
     let base_indent = leading_whitespace(lines[start_index]);
     let mut end_index = start_index;
 
-    for index in (start_index + 1)..lines.len() {
-        let line = lines[index];
+    for (index, line) in lines.iter().enumerate().skip(start_index + 1) {
         if line.trim().is_empty() {
             end_index = index;
             continue;
@@ -325,10 +329,11 @@ fn find_definition_by_name<'a>(parsed: &'a ParsedFile, name: &str) -> Option<&'a
         .find(|definition| definition.name == name)
 }
 
-fn first_non_init_function<'a>(parsed: &'a ParsedFile) -> Option<&'a Definition> {
-    parsed.definitions.iter().find(|definition| {
-        definition.kind == "function" && definition.name != "__init__"
-    })
+fn first_non_init_function(parsed: &ParsedFile) -> Option<&Definition> {
+    parsed
+        .definitions
+        .iter()
+        .find(|definition| definition.kind == "function" && definition.name != "__init__")
 }
 
 #[cfg(test)]
@@ -351,71 +356,99 @@ mod tests {
             calls: Vec::new(),
         };
 
-        let snippet =
-            read_definition_snippet(repo, "auth/routes.py", &parsed, "login", "HTTP routes", None)
-                .expect("snippet");
-        assert!(snippet.lines.iter().any(|line| line.contains("service.login")));
-        assert!(snippet.lines.iter().any(|line| line.contains("def login_handler")));
-        assert!(!snippet.lines.iter().any(|line| line.contains("register_handler")));
-    }
-
-    #[test]
-    fn middleware_fixture_prefers_call_over_class() {
-        let repo = Path::new("tests/benchmarks/starlette");
-        let path = "starlette/middleware/base.py";
-        let atlas_dir = repo.join(".atlas");
-        let symbols = crate::parse::load_symbols(&atlas_dir).expect("symbols");
-        let parsed = symbols
-            .files
-            .iter()
-            .find(|file| file.path.replace('\\', "/") == path)
-            .expect("parsed file");
-
-        let anchor = resolve_anchor(parsed, "middleware", "depended on by 3 file(s)", None)
-            .expect("anchor");
-        assert_eq!(anchor.1, "__call__");
-
         let snippet = read_definition_snippet(
             repo,
-            path,
-            parsed,
-            "middleware",
-            "depended on by 3 file(s)",
+            "auth/routes.py",
+            &parsed,
+            "login",
+            "HTTP routes",
             None,
-        )
-        .expect("snippet");
-        assert!(snippet.lines.iter().any(|line| line.contains("async def __call__")));
-        assert!(!snippet.lines.iter().any(|line| line.contains("_wrapped_rcv_disconnected")));
-    }
-
-    #[test]
-    fn errors_snippet_starts_at_class_not_html_template() {
-        let repo = Path::new("tests/benchmarks/starlette");
-        let path = "starlette/middleware/errors.py";
-        let atlas_dir = repo.join(".atlas");
-        let symbols = crate::parse::load_symbols(&atlas_dir).expect("symbols");
-        let parsed = symbols
-            .files
-            .iter()
-            .find(|file| file.path.replace('\\', "/") == path)
-            .expect("parsed file");
-
-        let snippet = read_definition_snippet(
-            repo,
-            path,
-            parsed,
-            "middleware",
-            "depended on by 2 file(s)",
-            Some("ServerErrorMiddleware"),
         )
         .expect("snippet");
         assert!(snippet
             .lines
-            .first()
-            .expect("first line")
-            .contains("async def __call__")
-            || snippet.lines.iter().any(|line| line.contains("async def __call__")));
-        assert!(!snippet.lines.iter().any(|line| line.contains("<span class=\"lineno\">")));
+            .iter()
+            .any(|line| line.contains("service.login")));
+        assert!(snippet
+            .lines
+            .iter()
+            .any(|line| line.contains("def login_handler")));
+        assert!(!snippet
+            .lines
+            .iter()
+            .any(|line| line.contains("register_handler")));
+    }
+
+    #[test]
+    fn middleware_fixture_prefers_call_over_class() {
+        let parsed = ParsedFile {
+            path: "starlette/middleware/base.py".to_string(),
+            language: "python".to_string(),
+            definitions: vec![
+                Definition {
+                    kind: "class".to_string(),
+                    name: "BaseHTTPMiddleware".to_string(),
+                    line: 1,
+                },
+                Definition {
+                    kind: "function".to_string(),
+                    name: "__init__".to_string(),
+                    line: 2,
+                },
+                Definition {
+                    kind: "function".to_string(),
+                    name: "__call__".to_string(),
+                    line: 8,
+                },
+                Definition {
+                    kind: "function".to_string(),
+                    name: "_wrapped_rcv_disconnected".to_string(),
+                    line: 20,
+                },
+            ],
+            imports: Vec::new(),
+            calls: Vec::new(),
+        };
+
+        let anchor = resolve_anchor(&parsed, "middleware", "depended on by 3 file(s)", None)
+            .expect("anchor");
+        assert_eq!(anchor.1, "__call__");
+    }
+
+    #[test]
+    fn errors_snippet_starts_at_class_not_html_template() {
+        let parsed = ParsedFile {
+            path: "starlette/middleware/errors.py".to_string(),
+            language: "python".to_string(),
+            definitions: vec![
+                Definition {
+                    kind: "function".to_string(),
+                    name: "error_html".to_string(),
+                    line: 1,
+                },
+                Definition {
+                    kind: "class".to_string(),
+                    name: "ServerErrorMiddleware".to_string(),
+                    line: 20,
+                },
+                Definition {
+                    kind: "function".to_string(),
+                    name: "__call__".to_string(),
+                    line: 30,
+                },
+            ],
+            imports: Vec::new(),
+            calls: Vec::new(),
+        };
+
+        let anchor = resolve_anchor(
+            &parsed,
+            "middleware",
+            "depended on by 2 file(s)",
+            Some("ServerErrorMiddleware"),
+        )
+        .expect("anchor");
+        assert_eq!(anchor, (30, "__call__".to_string()));
     }
 
     #[test]
@@ -479,8 +512,7 @@ mod tests {
             calls: Vec::new(),
         };
 
-        let anchor =
-            resolve_anchor(&parsed, "registration", "entrypoint", None).expect("anchor");
+        let anchor = resolve_anchor(&parsed, "registration", "entrypoint", None).expect("anchor");
         assert_eq!(anchor.1, "register_page");
     }
 }

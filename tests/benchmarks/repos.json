@@ -1,0 +1,71 @@
+{
+  "clone_dir": "tests/benchmarks/repos",
+  "reports_dir": "tests/benchmarks/reports",
+  "repos": [
+    {
+      "id": "demo_app",
+      "path": "tests/fixtures/demo_app",
+      "notes": "Bundled fixture — no clone",
+      "flow": "login",
+      "learn": "auth",
+      "explain": "auth"
+    },
+    {
+      "id": "ugly_app",
+      "path": "tests/fixtures/ugly_app",
+      "notes": "Bundled stress fixture",
+      "flow": "login",
+      "learn": "auth",
+      "explain": "auth"
+    },
+    {
+      "id": "starlette",
+      "url": "https://github.com/encode/starlette.git",
+      "flow": "routing",
+      "learn": "middleware",
+      "explain": "middleware"
+    },
+    {
+      "id": "httpx",
+      "url": "https://github.com/encode/httpx.git",
+      "flow": "request",
+      "learn": "client",
+      "explain": "client"
+    },
+    {
+      "id": "flask",
+      "url": "https://github.com/pallets/flask.git",
+      "flow": "request",
+      "learn": "app",
+      "explain": "app"
+    },
+    {
+      "id": "fastapi",
+      "url": "https://github.com/tiangolo/fastapi.git",
+      "flow": "routing",
+      "learn": "dependencies",
+      "explain": "routing"
+    },
+    {
+      "id": "express",
+      "url": "https://github.com/expressjs/express.git",
+      "flow": "router",
+      "learn": "middleware",
+      "explain": "request"
+    },
+    {
+      "id": "chi",
+      "url": "https://github.com/go-chi/chi.git",
+      "flow": "route",
+      "learn": "middleware",
+      "explain": "context"
+    },
+    {
+      "id": "cobra",
+      "url": "https://github.com/spf13/cobra.git",
+      "flow": "command",
+      "learn": "command",
+      "explain": "command"
+    }
+  ]
+}

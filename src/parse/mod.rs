@@ -169,7 +169,7 @@ pub fn symbol_totals(output: &ParseOutput) -> (usize, usize, usize) {
 }
 
 pub fn supported_languages_label() -> &'static str {
-    "Python, TypeScript, JavaScript, Go, C"
+    "Python, TypeScript, JavaScript, Go, C, Rust"
 }
 
 pub fn load_symbols(atlas_dir: &Path) -> Result<ParseOutput, String> {
